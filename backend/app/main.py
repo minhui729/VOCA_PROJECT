@@ -14,14 +14,17 @@ app = FastAPI()
 # ===================================================================
 # CORS 설정
 # ===================================================================
-origins = ["*"]
+origins = [
+    "https://voca-project-tau.vercel.app", # Vercel 배포 주소
+    "http://localhost:3000",             # 로컬 개발 환경 주소
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=origins,       # 허용할 출처 목록
+    allow_credentials=True,      # 쿠키를 포함한 요청을 허용
+    allow_methods=["*"],         # 모든 HTTP 메소드 허용
+    allow_headers=["*"],         # 모든 HTTP 헤더 허용
 )
 # ===================================================================
 
