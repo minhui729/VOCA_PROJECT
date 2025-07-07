@@ -3,6 +3,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+// ✨ next/navigation에서 useParams 훅을 가져옵니다.
+import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { Volume2, Info, ArrowLeft, Loader2 } from 'lucide-react';
@@ -25,14 +27,13 @@ interface ApiError {
     detail: string;
 }
 
-// ✨ Next.js 페이지 컴포넌트의 props 타입을 명확하게 정의합니다.
-// 이 방식은 빌드 시 Next.js가 자동으로 생성하는 타입과의 충돌을 방지하는 가장 안정적인 방법입니다.
-type PageProps = {
-  params: { id: string };
-};
-
 // --- 메인 컴포넌트 ---
-export default function WordbookDetailPage({ params }: PageProps) {
+// ✨ props를 직접 받는 대신 useParams 훅을 사용하도록 수정합니다.
+export default function WordbookDetailPage() {
+  // ✨ useParams 훅을 사용하여 라우트 파라미터를 가져옵니다.
+  const params = useParams();
+  const id = params.id as string; // id가 string | string[] 일 수 있으므로 string으로 타입 단언
+
   const { token, isLoading: isAuthLoading } = useAuth();
   const [wordbook, setWordbook] = useState<Wordbook | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,6 +54,9 @@ export default function WordbookDetailPage({ params }: PageProps) {
 
   // 단어장 데이터 불러오기
   useEffect(() => {
+    // ✨ id가 존재할 때만 fetch를 실행하도록 조건 추가
+    if (!id) return;
+
     const fetchWordbookDetail = async () => {
       setIsLoading(true);
       setError('');
@@ -62,7 +66,7 @@ export default function WordbookDetailPage({ params }: PageProps) {
         }
         // 💡 Vercel 배포를 위해서는 API 주소를 환경 변수로 관리해야 합니다.
         // 예: const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-        const response = await fetch(`http://127.0.0.1:8000/api/wordbooks/${params.id}`, {
+        const response = await fetch(`http://127.0.0.1:8000/api/wordbooks/${id}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!response.ok) {
@@ -88,7 +92,8 @@ export default function WordbookDetailPage({ params }: PageProps) {
       setError('로그인이 필요합니다. 잠시 후 로그인 페이지로 이동합니다.');
       setIsLoading(false);
     }
-  }, [params.id, token, isAuthLoading]);
+    // ✨ useEffect의 의존성 배열을 `id`로 변경합니다.
+  }, [id, token, isAuthLoading]);
 
   // 영어 발음 듣기 함수
   const speak = (text: string) => {
@@ -147,7 +152,8 @@ export default function WordbookDetailPage({ params }: PageProps) {
 
         {/* 퀴즈 시작 버튼 */}
         <div className="my-8 text-center">
-          <Link href={`/wordbooks/${params.id}/quiz`}>
+          {/* ✨ Link의 href도 `id` 변수를 사용하도록 수정합니다. */}
+          <Link href={`/wordbooks/${id}/quiz`}>
             <button 
               disabled={wordbook.words.length < 4} 
               className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
