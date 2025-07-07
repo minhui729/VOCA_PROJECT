@@ -24,13 +24,10 @@ interface Wordbook {
 interface ApiError {
     detail: string;
 }
-// ✨ 페이지 props 타입을 명확하게 정의하여 타입 오류 해결
-interface PageProps {
-    params: { id: string };
-}
 
 // --- 메인 컴포넌트 ---
-export default function WordbookDetailPage({ params }: PageProps) {
+// ✨ PageProps 인터페이스를 사용하는 대신, 컴포넌트 매개변수에서 직접 타입을 정의하여 빌드 오류를 해결합니다.
+export default function WordbookDetailPage({ params }: { params: { id: string } }) {
   const { token, isLoading: isAuthLoading } = useAuth();
   const [wordbook, setWordbook] = useState<Wordbook | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,7 +86,6 @@ export default function WordbookDetailPage({ params }: PageProps) {
   // 영어 발음 듣기 함수
   const speak = (text: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
-      // ✨ alert() 대신 console.warn으로 변경하여 안정성 확보
       console.warn("사용하시는 브라우저는 음성 재생을 지원하지 않습니다.");
       return;
     }
