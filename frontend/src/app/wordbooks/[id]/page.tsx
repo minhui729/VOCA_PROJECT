@@ -13,25 +13,22 @@ interface Word {
   part_of_speech: string | null;
   example_sentence: string | null;
 }
+
 interface Wordbook {
   id: number;
   title: string;
   description: string | null;
   words: Word[];
 }
+
 interface ApiError {
     detail: string;
 }
-// 페이지 props 타입을 명확하게 정의합니다.
-// Next.js는 페이지 컴포넌트의 props로 params와 searchParams를 예상합니다.
-// 타입 불일치 오류를 해결하기 위해 searchParams를 옵셔널 프로퍼티로 추가합니다.
-interface PageProps {
-    params: { id: string };
-    searchParams?: { [key: string]: string | string[] | undefined };
-}
 
 // --- 메인 컴포넌트 ---
-export default function WordbookDetailPage({ params }: PageProps) {
+// PageProps 인터페이스를 제거하고, 컴포넌트 props에 직접 타입을 명시합니다.
+// 이것이 Next.js App Router의 표준 방식이며, 빌드 오류를 해결합니다.
+export default function WordbookDetailPage({ params }: { params: { id: string } }) {
   const { token, isLoading: isAuthLoading } = useAuth();
   const [wordbook, setWordbook] = useState<Wordbook | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,10 +54,12 @@ export default function WordbookDetailPage({ params }: PageProps) {
       setError('');
       try {
         if (!token) {
+            // 이 로직은 하단의 isAuthLoading, token 의존성 배열 체크에서 이미 처리되지만,
+            // 만약을 위한 방어 코드로 유지합니다.
             throw new Error("로그인이 필요합니다.");
         }
         
-        // ✨ API 주소를 환경 변수에서 가져오도록 수정
+        // API 주소를 환경 변수에서 가져오도록 수정
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
         const response = await fetch(`${API_BASE_URL}/api/wordbooks/${params.id}`, {
           headers: { 'Authorization': `Bearer ${token}` },
@@ -83,11 +82,15 @@ export default function WordbookDetailPage({ params }: PageProps) {
       }
     };
     
+    // 인증 정보 로딩이 끝나고 토큰이 있을 때만 데이터를 가져옵니다.
     if (!isAuthLoading && token) {
       fetchWordbookDetail();
     } else if (!isAuthLoading && !token) {
+      // 인증 로딩이 끝났는데 토큰이 없는 경우
       setError('로그인이 필요합니다. 잠시 후 로그인 페이지로 이동합니다.');
       setIsLoading(false);
+      // 필요하다면 여기서 로그인 페이지로 리디렉션할 수 있습니다.
+      // 예: setTimeout(() => router.push('/login'), 2000);
     }
   }, [params.id, token, isAuthLoading]);
 
@@ -99,6 +102,7 @@ export default function WordbookDetailPage({ params }: PageProps) {
     }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
+    // 특정 영어 목소리를 찾아서 설정하면 발음이 더 자연스러워집니다.
     const englishVoice = window.speechSynthesis.getVoices().find(v => v.lang.startsWith('en-'));
     if (englishVoice) utterance.voice = englishVoice;
     utterance.lang = "en-US";
