@@ -1,15 +1,20 @@
-// frontend/app/student/dashboard/page.tsx
+// frontend/src/app/student/dashboard/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { Loader2, BookCopy } from 'lucide-react'; // UI 개선을 위한 아이콘 추가
 
-// 학생 대시보드에서 사용할 단어장 데이터의 타입 정의
+// --- 타입 정의 ---
 interface Wordbook {
   id: number;
   title: string;
   description: string | null;
+}
+// API 에러 응답을 위한 타입
+interface ApiError {
+    detail: string;
 }
 
 export default function StudentDashboard() {
@@ -31,21 +36,28 @@ export default function StudentDashboard() {
       setIsLoading(true);
       setError('');
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/wordbooks/', {
+        // ✨ API 주소를 환경 변수에서 가져오도록 수정
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+        const response = await fetch(`${API_BASE_URL}/api/wordbooks/`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
         if (!response.ok) {
-          throw new Error('단어장 목록을 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.');
+          const errorData: ApiError = await response.json();
+          throw new Error(errorData.detail || '단어장 목록을 불러오는 데 실패했습니다.');
         }
         const data: Wordbook[] = await response.json();
         setWordbooks(data);
       } catch (err) {
-          if (err instanceof Error) {
-            console.error(err.message);
-          }
+        // ✨ any 타입을 피하고, UI에 에러 메시지를 표시하도록 수정
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('알 수 없는 오류가 발생했습니다.');
+        }
+        console.error(err);
       } finally {
         setIsLoading(false);
       }
@@ -57,9 +69,15 @@ export default function StudentDashboard() {
   }, [isAuthLoading, token]);
 
   if (isAuthLoading) {
-    return <div className="flex justify-center items-center h-screen text-gray-500">로딩 중...</div>;
+    return (
+        <div className="flex flex-col justify-center items-center h-screen bg-gray-100 dark:bg-gray-900">
+            <Loader2 className="animate-spin text-blue-500 h-12 w-12" />
+            <p className="mt-4 text-gray-600 dark:text-gray-300">사용자 정보를 확인하는 중...</p>
+        </div>
+    );
   }
 
+  // user가 없으면 AuthContext에서 리디렉션 처리하므로 null 반환
   if (!user) {
     return null; 
   }
@@ -92,7 +110,10 @@ export default function StudentDashboard() {
         
         {/* 단어장 목록 또는 상태 메시지 표시 */}
         {isLoading ? (
-          <p className="text-center text-gray-500">단어장 목록을 불러오는 중...</p>
+          <div className="flex justify-center items-center p-10">
+            <Loader2 className="animate-spin text-blue-500 h-8 w-8" />
+            <p className="ml-4 text-center text-gray-500">단어장 목록을 불러오는 중...</p>
+          </div>
         ) : error ? (
           <p className="text-center text-red-500">{error}</p>
         ) : wordbooks.length > 0 ? (
@@ -106,8 +127,6 @@ export default function StudentDashboard() {
                   </p>
                 </div>
                 <div className="mt-6 text-right">
-                  {/* --- 수정된 부분 --- */}
-                  {/* 링크 경로에서 '/student'를 제거하여 올바른 상세 페이지로 이동하도록 수정 */}
                   <Link href={`/wordbooks/${wordbook.id}`} passHref>
                     <button className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all">
                       학습 시작
@@ -118,8 +137,9 @@ export default function StudentDashboard() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16">
-            <p className="text-gray-500">아직 학습할 수 있는 단어장이 없습니다.<br/>선생님이 단어장을 등록할 때까지 기다려주세요.</p>
+          <div className="text-center py-16 px-6 bg-white/50 dark:bg-gray-800/50 rounded-2xl">
+            <BookCopy className="mx-auto text-gray-400" size={48} />
+            <p className="mt-4 text-gray-500">아직 학습할 수 있는 단어장이 없습니다.<br/>선생님이 단어장을 등록할 때까지 기다려주세요.</p>
           </div>
         )}
       </main>

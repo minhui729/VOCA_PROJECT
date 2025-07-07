@@ -1,27 +1,33 @@
-// frontend/app/login/page.tsx
+// frontend/src/app/login/page.tsx
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { useAuth } from '@/contexts/AuthContext'; // useAuth 훅 임포트
+import { useAuth } from '@/contexts/AuthContext';
+import { Loader2 } from 'lucide-react'; // 로딩 아이콘 추가
 
 export default function LoginPage() {
-  const [username, setUsername] = useState(''); // 학생의 접속 코드
-  const [password, setPassword] = useState(''); // 학생의 비밀번호
-  const [error, setError] = useState(''); // 에러 메시지
-  const { login } = useAuth(); // 컨텍스트에서 login 함수 가져오기
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // 로딩 상태 추가
+  const { login } = useAuth();
 
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
-    setError(''); // 이전 에러 메시지 초기화
+    setError('');
+    setIsLoading(true); // 로딩 시작
 
-    // 백엔드의 /api/token 엔드포인트는 JSON이 아닌 form-data 형식을 사용합니다.
-    // 따라서 URLSearchParams를 사용해 데이터를 구성해야 합니다.
     const loginData = new URLSearchParams();
     loginData.append('username', username);
     loginData.append('password', password);
 
+    // ✨ API 주소를 환경 변수에서 가져오도록 수정
+    // 배포 환경에서는 Vercel에 설정된 NEXT_PUBLIC_API_URL 값을 사용하고,
+    // 로컬 개발 환경에서는 || 뒤의 기본값(http://127.0.0.1:8000)을 사용합니다.
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/token', {
+      const response = await fetch(`${API_BASE_URL}/api/token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -31,18 +37,18 @@ export default function LoginPage() {
 
       if (response.ok) {
         const data = await response.json();
-        // 컨텍스트의 login 함수를 호출!
-        // 이 함수가 토큰 저장, 유저 정보 로딩을 모두 처리합니다.
-        await login(data.access_token); 
-        alert('로그인 성공!');
+        // AuthContext의 login 함수를 호출하여 토큰 저장 및 페이지 이동 처리
+        await login(data.access_token);
+        // 로그인 성공 시 alert 대신 AuthContext에서 페이지 이동을 처리하므로 별도 액션 불필요
       } else {
-        // 로그인 실패 시 에러 메시지 표시
         const errorData = await response.json();
-        setError(errorData.detail || '로그인에 실패했습니다.');
+        setError(errorData.detail || '로그인에 실패했습니다. 접속 코드와 비밀번호를 확인해주세요.');
       }
     } catch (err) {
-      setError('서버와 통신할 수 없습니다. 서버가 켜져 있는지 확인해주세요.');
+      setError('서버와 통신할 수 없습니다. 잠시 후 다시 시도해주세요.');
       console.error(err);
+    } finally {
+      setIsLoading(false); // 로딩 종료
     }
   };
 
@@ -84,8 +90,12 @@ export default function LoginPage() {
           )}
 
           <div>
-            <button type="submit" className="w-full px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all">
-              로그인
+            <button 
+              type="submit" 
+              disabled={isLoading}
+              className="w-full flex justify-center items-center gap-2 px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:bg-gray-400"
+            >
+              {isLoading ? <Loader2 className="animate-spin" /> : '로그인'}
             </button>
           </div>
         </form>
