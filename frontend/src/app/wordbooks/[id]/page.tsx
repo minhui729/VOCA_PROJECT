@@ -25,9 +25,14 @@ interface ApiError {
     detail: string;
 }
 
+// ✨ Next.js 페이지 컴포넌트의 props 타입을 명확하게 정의합니다.
+// 이 방식은 빌드 시 Next.js가 자동으로 생성하는 타입과의 충돌을 방지하는 가장 안정적인 방법입니다.
+type PageProps = {
+  params: { id: string };
+};
+
 // --- 메인 컴포넌트 ---
-// ✨ PageProps 인터페이스를 사용하는 대신, 컴포넌트 매개변수에서 직접 타입을 정의하여 빌드 오류를 해결합니다.
-export default function WordbookDetailPage({ params }: { params: { id: string } }) {
+export default function WordbookDetailPage({ params }: PageProps) {
   const { token, isLoading: isAuthLoading } = useAuth();
   const [wordbook, setWordbook] = useState<Wordbook | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,6 +60,8 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
         if (!token) {
           throw new Error("로그인이 필요합니다.");
         }
+        // 💡 Vercel 배포를 위해서는 API 주소를 환경 변수로 관리해야 합니다.
+        // 예: const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         const response = await fetch(`http://127.0.0.1:8000/api/wordbooks/${params.id}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
