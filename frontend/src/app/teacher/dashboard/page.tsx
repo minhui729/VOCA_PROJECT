@@ -173,14 +173,16 @@ const StudentManagementPanel = () => {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ name: newStudentName, username: newStudentUsername, password: "1234", role: "student" })
         });
-        const data = await response.json();
+        const data: Student | ApiError = await response.json();
         if (response.status === 201) {
-            setSubmissionResult({ success: true, message: `학생 '${data.name}'이(가) 성공적으로 등록되었습니다.`, data });
+            const newStudent = data as Student;
+            setSubmissionResult({ success: true, message: `학생 '${newStudent.name}'이(가) 성공적으로 등록되었습니다.`, data: newStudent });
             fetchStudents();
             setNewStudentName('');
             setNewStudentUsername('');
         } else {
-            setSubmissionResult({ success: false, message: `등록 실패: ${data.detail || '알 수 없는 오류'}` });
+            const errorData = data as ApiError;
+            setSubmissionResult({ success: false, message: `등록 실패: ${errorData.detail || '알 수 없는 오류'}` });
         }
     } catch (err) {
         console.error(err);
