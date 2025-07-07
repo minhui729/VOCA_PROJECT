@@ -42,9 +42,10 @@ export default function StudentDashboard() {
         }
         const data: Wordbook[] = await response.json();
         setWordbooks(data);
-      } catch (err: any) {
-        setError(err.message);
-        console.error(err);
+      } catch (err) {
+          if (err instanceof Error) {
+            console.error(err.message);
+          }
       } finally {
         setIsLoading(false);
       }

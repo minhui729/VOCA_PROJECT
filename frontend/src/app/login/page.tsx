@@ -2,14 +2,12 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation'; // 페이지 이동을 위한 훅
 import { useAuth } from '@/contexts/AuthContext'; // useAuth 훅 임포트
 
 export default function LoginPage() {
   const [username, setUsername] = useState(''); // 학생의 접속 코드
   const [password, setPassword] = useState(''); // 학생의 비밀번호
   const [error, setError] = useState(''); // 에러 메시지
-  const router = useRouter(); // 라우터 객체 생성
   const { login } = useAuth(); // 컨텍스트에서 login 함수 가져오기
 
   const handleLogin = async (event: FormEvent) => {

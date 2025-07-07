@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
-import { Volume2, Info, ArrowLeft } from 'lucide-react';
+import { Volume2, Info, ArrowLeft, Loader2 } from 'lucide-react'; // ✨ Loader2 추가
 
 // --- 타입 정의 ---
 interface Word {
@@ -20,6 +20,10 @@ interface Wordbook {
   title: string;
   description: string | null;
   words: Word[];
+}
+// ✨ API 에러 응답을 위한 타입 추가
+interface ApiError {
+    detail: string;
 }
 
 // --- 메인 컴포넌트 ---
@@ -48,18 +52,27 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
       setIsLoading(true);
       setError('');
       try {
-        if (!token) throw new Error("로그인이 필요합니다.");
+        if (!token) {
+            // 이 케이스는 아래에서 처리되지만, 만약을 위한 방어 코드
+            throw new Error("로그인이 필요합니다.");
+        }
         const response = await fetch(`http://127.0.0.1:8000/api/wordbooks/${params.id}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!response.ok) {
-          const errorData = await response.json();
+          // ✨ any 타입을 피하기 위해 에러 데이터 타입을 명시적으로 지정
+          const errorData: ApiError = await response.json();
           throw new Error(errorData.detail || '단어장 정보를 불러오는 데 실패했습니다.');
         }
         const data: Wordbook = await response.json();
         setWordbook(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err) {
+        // ✨ catch 블록에서 에러 상태를 설정하도록 수정
+        if (err instanceof Error) {
+            setError(err.message);
+        } else {
+            setError('알 수 없는 오류가 발생했습니다.');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -92,6 +105,8 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
 
   if (isLoading || isAuthLoading) return (
       <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
+          {/* ✨ 로딩 아이콘 추가 */}
+          <Loader2 className="animate-spin mr-2" />
           로딩 중...
       </div>
   );
@@ -162,7 +177,8 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
               </div>
               {word.example_sentence && (
                 <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">"{word.example_sentence}"</p>
+                  {/* ✨ 따옴표 오류 수정 */}
+                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">&quot;{word.example_sentence}&quot;</p>
                 </div>
               )}
             </div>
