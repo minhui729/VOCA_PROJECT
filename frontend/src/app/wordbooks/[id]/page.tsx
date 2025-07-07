@@ -1,5 +1,3 @@
-// frontend/src/app/wordbooks/[id]/page.tsx
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -25,8 +23,11 @@ interface ApiError {
     detail: string;
 }
 // 페이지 props 타입을 명확하게 정의합니다.
+// Next.js는 페이지 컴포넌트의 props로 params와 searchParams를 예상합니다.
+// 타입 불일치 오류를 해결하기 위해 searchParams를 옵셔널 프로퍼티로 추가합니다.
 interface PageProps {
     params: { id: string };
+    searchParams?: { [key: string]: string | string[] | undefined };
 }
 
 // --- 메인 컴포넌트 ---
