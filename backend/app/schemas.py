@@ -2,31 +2,23 @@
 
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime # datetime 임포트
+# ✨ models.py의 UserRole Enum을 스키마에서도 사용하기 위해 import
+from .models import UserRole 
+from sqlalchemy import func # func 임포트
+from sqlalchemy.orm import Session, selectinload, subqueryload
+
+from . import models, schemas
 
 # =================================================================
-# [수정] 단어장 관련 스키마 순서 및 내용 정리
+# 단어 관련 스키마
 # =================================================================
 
-# 1. 가장 기초가 되는 WordbookBase를 먼저 정의합니다.
-class WordbookBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-
-class WordCreate(BaseModel): # WordCreate를 WordBase 대신 사용
+class WordBase(BaseModel):
     text: str
     meaning: str
     part_of_speech: Optional[str] = None
     example_sentence: Optional[str] = None
-
-class WordbookUploadRequest(BaseModel):
-    title: str
-    description: Optional[str] = None
-    words: List[WordCreate] # 단어 목록을 리스트로 받음
-
-# 3. 단어 관련 스키마들을 정의합니다.
-class WordBase(BaseModel):
-    text: str
-    meaning: str
 
 class WordCreate(WordBase):
     pass
@@ -38,7 +30,19 @@ class Word(WordBase):
     class Config:
         from_attributes = True
 
-# 4. 최종적으로 가장 복잡한 응답용 스키마 Wordbook을 정의합니다.
+# =================================================================
+# 단어장 관련 스키마
+# =================================================================
+
+class WordbookBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+
+# ✨ 단어장 업로드 시 학생 ID 목록을 함께 받도록 스키마 수정
+class WordbookUpload(WordbookBase):
+    words: List[WordCreate]
+    student_ids: List[int]
+
 class Wordbook(WordbookBase):
     id: int
     owner_id: int
@@ -48,19 +52,32 @@ class Wordbook(WordbookBase):
         from_attributes = True
 
 # =================================================================
-# 사용자 관련 스키마 (이 부분은 이전과 동일)
+# 사용자 관련 스키마
 # =================================================================
 
+# ✨ UserBase에서 email 제거, username 추가
 class UserBase(BaseModel):
-    email: str
+    username: str
+    name: str
 
+# ✨ UserCreate에서 password 필드명 명확화
 class UserCreate(UserBase):
-    initial_password: str
+    password: str
+    role: UserRole # ✨ 역할도 생성 시 받을 수 있도록 추가
 
-class User(UserBase):
+# ✨ 학생 목록 조회를 위한 간단한 스키마
+class Student(BaseModel):
     id: int
     username: str
-    role: str
+    name: str
+
+    class Config:
+        from_attributes = True
+
+# ✨ User 응답 스키마에서 email 제거
+class User(UserBase):
+    id: int
+    role: UserRole # ✨ 타입을 UserRole Enum으로 변경
 
     class Config:
         from_attributes = True
@@ -70,12 +87,15 @@ class Token(BaseModel):
     token_type: str
 
 class TokenData(BaseModel):
-    username: str | None = None
+    username: Optional[str] = None
 
 class UserPasswordUpdate(BaseModel):
     new_password: str
 
-# --- Test Schemas ---
+# =================================================================
+# 시험 관련 스키마
+# =================================================================
+
 class TestBase(BaseModel):
     title: str
 
@@ -89,3 +109,28 @@ class Test(TestBase):
 
     class Config:
         from_attributes = True
+
+# =================================================================
+# ✨ 학습 리포트 관련 스키마 추가
+# =================================================================
+class TestResultForReport(BaseModel):
+    score: float
+    submitted_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class WordbookReport(BaseModel):
+    id: int
+    title: str
+    average_score: Optional[float] = None
+    test_results: List[TestResultForReport] = []
+
+    class Config:
+        from_attributes = True
+
+class StudentReport(BaseModel):
+    student_id: int
+    student_name: str
+    assigned_wordbooks_report: List[WordbookReport] = []
+
