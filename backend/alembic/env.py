@@ -33,9 +33,13 @@ target_metadata = Base.metadata
 # DATABASE_URL 환경 변수가 없으면 alembic.ini의 기본 설정을 사용합니다.
 database_url = os.getenv("DATABASE_URL")
 if database_url:
-    # psycopg 드라이버를 asyncpg로 변경해줍니다. (Render는 종종 postgres://로 시작)
-    if database_url.startswith("postgres://"):
+    # 비동기 작업을 위해 드라이버를 asyncpg로 지정해야 합니다.
+    # Render의 URL은 'postgres://' 또는 'postgresql://'로 시작할 수 있습니다.
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    
     config.set_main_option("sqlalchemy.url", database_url)
 
 # ------------------------------------------------------------------ #
@@ -96,4 +100,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     asyncio.run(run_migrations_online())
-
