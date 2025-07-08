@@ -26,14 +26,13 @@ interface ApiError {
 }
 
 // --- 메인 컴포넌트 ---
-// PageProps 인터페이스를 제거하고, 컴포넌트 props에 직접 타입을 명시합니다.
-// 이것이 Next.js App Router의 표준 방식이며, 빌드 오류를 해결합니다.
-export default function WordbookDetailPage({ params }: { params: { id: string } }) {
+export default function WordbookDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { token, isLoading: isAuthLoading } = useAuth();
   const [wordbook, setWordbook] = useState<Wordbook | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPartInfo, setShowPartInfo] = useState(false);
+  const [wordbookId, setWordbookId] = useState<string>('');
 
   // 품사 약어 매핑
   const partOfSpeechAbbr: { [key: string]: string } = {
@@ -47,9 +46,20 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
     'interjection': 'interj.',
   };
 
+  // params를 resolve하는 useEffect
+  useEffect(() => {
+    const resolveParams = async () => {
+      const resolvedParams = await params;
+      setWordbookId(resolvedParams.id);
+    };
+    resolveParams();
+  }, [params]);
+
   // 단어장 데이터 불러오기
   useEffect(() => {
     const fetchWordbookDetail = async () => {
+      if (!wordbookId) return; // wordbookId가 없으면 실행하지 않음
+      
       setIsLoading(true);
       setError('');
       try {
@@ -61,7 +71,7 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
         
         // API 주소를 환경 변수에서 가져오도록 수정
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-        const response = await fetch(`${API_BASE_URL}/api/wordbooks/${params.id}`, {
+        const response = await fetch(`${API_BASE_URL}/api/wordbooks/${wordbookId}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
 
@@ -83,7 +93,7 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
     };
     
     // 인증 정보 로딩이 끝나고 토큰이 있을 때만 데이터를 가져옵니다.
-    if (!isAuthLoading && token) {
+    if (!isAuthLoading && token && wordbookId) {
       fetchWordbookDetail();
     } else if (!isAuthLoading && !token) {
       // 인증 로딩이 끝났는데 토큰이 없는 경우
@@ -92,7 +102,7 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
       // 필요하다면 여기서 로그인 페이지로 리디렉션할 수 있습니다.
       // 예: setTimeout(() => router.push('/login'), 2000);
     }
-  }, [params.id, token, isAuthLoading]);
+  }, [wordbookId, token, isAuthLoading]);
 
   // 영어 발음 듣기 함수
   const speak = (text: string) => {
@@ -152,7 +162,7 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
 
         {/* 퀴즈 시작 버튼 */}
         <div className="my-8 text-center">
-          <Link href={`/wordbooks/${params.id}/quiz`}>
+          <Link href={`/wordbooks/${wordbookId}/quiz`}>
             <button 
               disabled={wordbook.words.length < 4} 
               className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
