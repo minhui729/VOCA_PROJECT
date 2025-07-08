@@ -1,6 +1,6 @@
+import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
@@ -25,10 +25,20 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
+# ------------------------------------------------------------------ #
+#      ⬇️⬇️⬇️ 이 부분이 수정/추가된 핵심입니다 ⬇️⬇️⬇️               #
+# ------------------------------------------------------------------ #
+
+# Render와 같은 배포 환경을 위해 환경 변수에서 데이터베이스 URL을 가져옵니다.
+# DATABASE_URL 환경 변수가 없으면 alembic.ini의 기본 설정을 사용합니다.
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    # psycopg 드라이버를 asyncpg로 변경해줍니다. (Render는 종종 postgres://로 시작)
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    config.set_main_option("sqlalchemy.url", database_url)
+
+# ------------------------------------------------------------------ #
 
 
 def run_migrations_offline() -> None:
@@ -68,7 +78,8 @@ async def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # 우리가 app/database.py 에서 사용한 create_async_engine을 여기서도 사용
+    # 이제 이 부분은 Render 환경에서는 DATABASE_URL을,
+    # 로컬에서는 alembic.ini의 URL을 동적으로 사용하게 됩니다.
     connectable = create_async_engine(
         config.get_main_option("sqlalchemy.url")
     )
@@ -85,3 +96,4 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     asyncio.run(run_migrations_online())
+
