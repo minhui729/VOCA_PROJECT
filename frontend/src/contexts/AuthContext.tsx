@@ -40,32 +40,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (accessToken: string) => {
-        setIsLoading(true);
-        try {
-          const response = await fetch('http://127.0.0.1:8000/api/users/me/', {
-            headers: { 'Authorization': `Bearer ${accessToken}` },
-          });
-          if (response.ok) {
-            const userData = await response.json();
-            setUser(userData);
-            setToken(accessToken);
-            localStorage.setItem('accessToken', accessToken);
-            
-            // [수정] 사용자의 역할에 따라 다른 경로로 이동
-            if (userData.role === 'teacher') {
-              router.push('/teacher/dashboard');
-            } else {
-              router.push('/student/dashboard');
-            }
-          } else {
-            logout();
-          }
-        } catch (error) {
-          console.error("Failed to fetch user info", error);
-          logout();
-        } finally {
-          setIsLoading(false);
+    setIsLoading(true);
+    try {
+      // ✨ API 주소를 환경 변수에서 가져오도록 수정
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
+      // ✨ fetch 요청 주소를 동적으로 변경
+      const response = await fetch(`${API_BASE_URL}/api/users/me/`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        setToken(accessToken);
+        localStorage.setItem('accessToken', accessToken);
+        
+        if (userData.role === 'teacher') {
+          router.push('/teacher/dashboard');
+        } else {
+          router.push('/student/dashboard');
         }
+      } else {
+        logout();
+      }
+    } catch (error) {
+      console.error("Failed to fetch user info", error);
+      logout();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
