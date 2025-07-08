@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+import os
 
 from . import crud, models, schemas, security
 from .database import get_db
@@ -12,12 +13,28 @@ from .database import get_db
 app = FastAPI()
 
 # ===================================================================
-# CORS 설정
+# CORS 설정 - 환경 변수 기반으로 수정
 # ===================================================================
+
+# 환경 변수에서 허용할 origins 가져오기
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else []
+
+# 기본 origins 설정
 origins = [
-    "https://voca-project-tau.vercel.app", # Vercel 배포 주소
-    "http://localhost:3000",             # 로컬 개발 환경 주소
+    "http://localhost:3000",             # 로컬 개발 환경
+    "https://localhost:3000",            # 로컬 HTTPS
+    FRONTEND_URL,                        # 환경 변수로 설정된 프론트엔드 URL
 ]
+
+# 환경 변수에서 추가 origins가 있다면 추가
+if CORS_ORIGINS:
+    origins.extend(CORS_ORIGINS)
+
+# 중복 제거
+origins = list(set(origins))
+
+print(f"CORS Origins: {origins}")  # 디버깅용
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,7 +43,17 @@ app.add_middleware(
     allow_methods=["*"],         # 모든 HTTP 메소드 허용
     allow_headers=["*"],         # 모든 HTTP 헤더 허용
 )
+
 # ===================================================================
+# 헬스 체크 엔드포인트 추가
+# ===================================================================
+@app.get("/")
+def read_root():
+    return {"message": "Vocabulary API is running"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
 # ===================================================================
 # 인증 및 사용자 관련 API
