@@ -3,13 +3,23 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.future import select
+from dotenv import load_dotenv
+
+# ==============================================================================
+# .env 파일의 절대 경로를 직접 지정하여 로드합니다.
+# 이 방법은 자동 탐색 기능의 오류를 우회하여 가장 확실하게 환경 변수를 불러옵니다.
+# ------------------------------------------------------------------------------
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path=dotenv_path)
+else:
+    print(f"오류: '{dotenv_path}' 경로에서 .env 파일을 찾을 수 없습니다.")
+# ==============================================================================
+
 
 # ==============================================================================
 # 중요: 아래 import 경로는 사용자님의 실제 프로젝트 구조에 맞게 수정해야 합니다.
 # ------------------------------------------------------------------------------
-# 만약 이 스크립트를 실행할 때 'ModuleNotFoundError'가 발생하면,
-# app 폴더가 있는 경로를 파이썬이 찾을 수 있도록 경로를 추가해야 할 수 있습니다.
-# 예: import sys; sys.path.append('backend')
 import sys
 # 'backend' 폴더 안에 app 폴더가 있으므로 경로를 추가합니다.
 sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
@@ -20,14 +30,15 @@ from app.security import get_password_hash
 
 
 # --- 초기 데이터 설정 ---
-# 여기에 필요한 초기 사용자를 추가하거나 수정할 수 있습니다.
+# 데이터베이스 스키마에 맞게 email을 제거하고 name을 추가했습니다.
 INITIAL_USERS = [
     {
-        "username": "teacher",
-        "password": "password123", # 실제 프로덕션에서는 더 강력한 비밀번호를 사용하세요.
+        "username": "admin",
+        "name": "관리자",
+        "password": "1234", # 실제 프로덕션에서는 더 강력한 비밀번호를 사용하세요.
         "role": UserRole.teacher,
-        "name": "선생"
     },
+
 ]
 
 async def seed_data():
@@ -36,11 +47,11 @@ async def seed_data():
     """
     DATABASE_URL = os.getenv("DATABASE_URL")
     if not DATABASE_URL:
-        print("오류: DATABASE_URL 환경 변수가 설정되지 않았습니다.")
-        print("Render 서비스의 Environment 탭에서 DATABASE_URL이 올바르게 설정되었는지 확인하세요.")
+        print("오류: DATABASE_URL 환경 변수를 로드하지 못했습니다.")
+        print("'.env' 파일의 내용과 경로를 다시 한번 확인해주세요.")
         return
 
-    # Render 환경의 데이터베이스 URL을 asyncpg와 호환되도록 수정
+    # 데이터베이스 URL을 asyncpg와 호환되도록 수정
     db_url = DATABASE_URL
     if db_url.startswith("postgresql://"):
         db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
@@ -65,12 +76,12 @@ async def seed_data():
             # 비밀번호 해싱
             hashed_password = get_password_hash(user_data["password"])
             
-            # 새로운 사용자 객체 생성
+            # 새로운 사용자 객체 생성 (email 제거, name 추가)
             new_user = User(
-                username=user_data["username"],
-                email=user_data["email"],
+                username=user_data['username'],
+                name=user_data['name'],
                 hashed_password=hashed_password,
-                role=user_data["role"]
+                role=user_data['role']
             )
             db.add(new_user)
             print(f"+ 사용자 '{user_data['username']}'를 추가했습니다.")
