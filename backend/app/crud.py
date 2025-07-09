@@ -32,8 +32,10 @@ def create_wordbook_for_students(db: Session, wordbook_data: schemas.WordbookUpl
     return db_wordbook
 
 def get_wordbook(db: Session, wordbook_id: int):
+    # ✨ 단어장, 단어, 할당된 학생 정보를 한 번에 로드하도록 수정 (성능 개선)
     return db.query(models.Wordbook).options(
-        selectinload(models.Wordbook.words)
+        selectinload(models.Wordbook.words),
+        selectinload(models.Wordbook.students)
     ).filter(models.Wordbook.id == wordbook_id).first()
 
 def get_wordbooks(db: Session, skip: int = 0, limit: int = 100):
@@ -100,6 +102,17 @@ def delete_user(db: Session, user_id: int):
 # =================================================================
 # 시험 관련 CRUD
 # =================================================================
+
+# ✨ 퀴즈를 위한 단어 목록을 가져오는 함수 추가
+def get_words_for_quiz(db: Session, wordbook_id: int):
+    """
+    특정 단어장에 속한 모든 단어 목록을 퀴즈용으로 조회합니다.
+    """
+    wordbook = get_wordbook(db, wordbook_id=wordbook_id)
+    if not wordbook:
+        return None
+    return wordbook.words
+
 
 def create_test(db: Session, test: schemas.TestCreate, creator_id: int):
     db_test = models.Test(
