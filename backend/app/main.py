@@ -39,7 +39,7 @@ app.add_middleware(
 # ===================================================================
 @app.get("/")
 def read_root():
-    return {"message": "Vocabulary API is running"}
+    return {"message": "NEW VERSION DEPLOYED SUCCESSFULLY"}
 
 @app.get("/health")
 def health_check():
