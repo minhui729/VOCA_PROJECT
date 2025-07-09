@@ -2,10 +2,14 @@
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List # <--- List가 import 되어 있는지 확인하세요.
+from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 import os
+import logging # ✨ logging 모듈을 main.py에도 임포트합니다.
+
+# ✨ 로깅 기본 설정
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 from . import crud, models, schemas, security
 from .database import get_db
@@ -25,7 +29,6 @@ origins = [
 if CORS_ORIGINS:
     origins.extend(CORS_ORIGINS)
 origins = list(set(origins))
-print(f"CORS Origins: {origins}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -35,11 +38,12 @@ app.add_middleware(
 )
 
 # ===================================================================
-# 헬스 체크 엔드포인트 (기존과 동일)
+# 헬스 체크 엔드포인트
 # ===================================================================
 @app.get("/")
 def read_root():
-    return {"message": "NEW VERSION DEPLOYED SUCCESSFULLY"}
+    # 이전 테스트 메시지를 원래대로 되돌립니다.
+    return {"message": "Vocabulary API is running"}
 
 @app.get("/health")
 def health_check():
@@ -76,6 +80,7 @@ def login_for_access_token(
 def read_users_me(current_user: models.User = Depends(security.get_current_user)):
     return current_user
 
+# ... (다른 사용자 관련 API는 기존과 동일) ...
 @app.get("/api/teacher/students/", response_model=List[schemas.Student])
 def read_all_students(
     db: Session = Depends(get_db),
@@ -126,7 +131,6 @@ def reset_user_password(
 # 단어장 관련 API
 # ===================================================================
 
-# ✨ 새로 추가된 부분 시작
 @app.get("/api/wordbooks/", response_model=List[schemas.Wordbook])
 def read_my_wordbooks(
     db: Session = Depends(get_db),
@@ -135,12 +139,17 @@ def read_my_wordbooks(
     """
     로그인한 사용자가 학생일 경우, 할당된 모든 단어장 목록을 반환합니다.
     """
+    # ✨ 여기에 직접 로그를 추가하여 테스트합니다.
+    logging.info(f"--- MAIN.PY: API /api/wordbooks/ CALLED for user: {current_user.username} ---")
+
     if current_user.role != 'student':
+        logging.warning(f"--- MAIN.PY: User {current_user.username} is not a student. Returning empty list. ---")
         return []
     
+    logging.info(f"--- MAIN.PY: Calling crud.get_wordbooks_for_student for student ID: {current_user.id} ---")
     wordbooks = crud.get_wordbooks_for_student(db=db, student_id=current_user.id)
+    logging.info(f"--- MAIN.PY: crud function returned {len(wordbooks)} wordbooks. ---")
     return wordbooks
-# ✨ 새로 추가된 부분 끝
 
 @app.post("/api/wordbooks/upload/", response_model=schemas.Wordbook, status_code=status.HTTP_201_CREATED)
 def create_wordbook_by_upload(
@@ -180,3 +189,4 @@ def get_student_report_endpoint(
     if not report:
         raise HTTPException(status_code=404, detail="Student not found or no report available.")
     return report
+
