@@ -1,7 +1,7 @@
 # backend/app/schemas.py
 
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
 # ✨ models.py의 UserRole Enum을 스키마에서도 사용하기 위해 import
 from .models import UserRole 
@@ -105,6 +105,21 @@ class Test(TestBase):
 
     class Config:
         from_attributes = True
+
+class BaseQuestion(BaseModel):
+    type: str
+    question: str
+    answer: str
+
+class MultipleChoiceQuestion(BaseQuestion):
+    type: str = 'multiple_choice'
+    choices: List[str]
+
+class WrittenQuestion(BaseQuestion):
+    type: str = 'written'
+
+# API가 여러 종류의 질문을 반환할 수 있도록 Union을 사용합니다.
+QuizQuestion = Union[MultipleChoiceQuestion, WrittenQuestion]
 
 # =================================================================
 # ✨ 학습 리포트 관련 스키마 추가

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, selectinload, subqueryload
 from sqlalchemy import select
 from typing import List
 from sqlalchemy import func
-
+import random
 from . import models, schemas
 
 # =================================================================
@@ -124,6 +124,56 @@ def create_test(db: Session, test: schemas.TestCreate, creator_id: int):
     db.commit()
     db.refresh(db_test)
     return db_test
+
+# ✨ 퀴즈를 위한 단어 목록을 가져오는 함수 추가
+def get_words_for_quiz(db: Session, wordbook_id: int) -> List[models.Word]:
+    """
+    특정 단어장에 속한 모든 단어 목록을 퀴즈용으로 조회합니다.
+    """
+    wordbook = get_wordbook(db, wordbook_id=wordbook_id)
+    if not wordbook:
+        return []
+    return wordbook.words
+
+# ✨ 퀴즈 질문을 생성하는 로직 함수 추가
+def generate_quiz(words: List[models.Word]) -> List[schemas.QuizQuestion]:
+    """
+    단어 목록을 받아 객관식/주관식 퀴즈 질문 목록을 생성합니다.
+    """
+    if not words:
+        return []
+
+    questions: List[schemas.QuizQuestion] = []
+    all_meanings = [w.meaning for w in words]
+
+    for word in words:
+        # 단어가 4개 미만이면 주관식만, 그 이상이면 50% 확률로 문제 유형 결정
+        question_type = 'written'
+        if len(words) >= 4 and random.random() > 0.5:
+            question_type = 'multiple_choice'
+
+        if question_type == 'multiple_choice':
+            correct_answer = word.meaning
+            # 정답을 제외한 나머지 뜻 중에서 3개의 오답 선택
+            wrong_choices_pool = [m for m in all_meanings if m != correct_answer]
+            wrong_choices = random.sample(wrong_choices_pool, min(3, len(wrong_choices_pool)))
+            
+            choices = wrong_choices + [correct_answer]
+            random.shuffle(choices)
+
+            questions.append(schemas.MultipleChoiceQuestion(
+                question=f"다음 영단어의 뜻은? '{word.text}'",
+                answer=correct_answer,
+                choices=choices
+            ))
+        else: # 'written'
+            questions.append(schemas.WrittenQuestion(
+                question=f"다음 뜻을 가진 영단어는? '{word.meaning}'",
+                answer=word.text
+            ))
+    
+    random.shuffle(questions) # 최종 문제 순서 섞기
+    return questions
 
 # =================================================================
 # 학생 리포트 관련 CRUD

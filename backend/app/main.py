@@ -207,3 +207,33 @@ def get_quiz_words(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wordbook not found or has no words")
     
     return words
+
+# ✨ 아래 퀴즈 API를 새로 추가합니다.
+@app.get("/api/wordbooks/{wordbook_id}/quiz", response_model=List[schemas.QuizQuestion])
+def get_quiz_words(
+    wordbook_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    # 1. 단어장에 접근 권한이 있는지 확인합니다.
+    db_wordbook = crud.get_wordbook(db, wordbook_id=wordbook_id)
+    if db_wordbook is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wordbook not found")
+
+    is_owner = db_wordbook.owner_id == current_user.id
+    is_assigned_student = current_user in db_wordbook.students
+    
+    if not (is_owner or is_assigned_student):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions for this wordbook")
+
+    # 2. 단어장에서 단어 목록을 가져옵니다.
+    words = db_wordbook.words
+    
+    # 3. 단어가 없으면 프론트엔드가 처리하도록 빈 리스트를 반환합니다.
+    if not words:
+        return []
+
+    # 4. 단어 목록으로 퀴즈를 생성합니다.
+    quiz_questions = crud.generate_quiz(words)
+    
+    return quiz_questions
