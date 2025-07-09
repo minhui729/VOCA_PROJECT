@@ -2,13 +2,9 @@
 
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime # datetime 임포트
+from datetime import datetime
 # ✨ models.py의 UserRole Enum을 스키마에서도 사용하기 위해 import
 from .models import UserRole 
-from sqlalchemy import func # func 임포트
-from sqlalchemy.orm import Session, selectinload, subqueryload
-
-from . import models, schemas
 
 # =================================================================
 # 단어 관련 스키마
@@ -133,4 +129,3 @@ class StudentReport(BaseModel):
     student_id: int
     student_name: str
     assigned_wordbooks_report: List[WordbookReport] = []
-
