@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List # <--- List가 import 되어 있는지 확인하세요.
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 import os
@@ -13,39 +13,29 @@ from .database import get_db
 app = FastAPI()
 
 # ===================================================================
-# CORS 설정 - 환경 변수 기반으로 수정
+# CORS 설정 (기존과 동일)
 # ===================================================================
-
-# 환경 변수에서 허용할 origins 가져오기
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else []
-
-# 기본 origins 설정
 origins = [
-    "http://localhost:3000",             # 로컬 개발 환경
-    "https://localhost:3000",            # 로컬 HTTPS
-    FRONTEND_URL,                        # 환경 변수로 설정된 프론트엔드 URL
+    "http://localhost:3000",
+    "https://localhost:3000",
+    FRONTEND_URL,
 ]
-
-# 환경 변수에서 추가 origins가 있다면 추가
 if CORS_ORIGINS:
     origins.extend(CORS_ORIGINS)
-
-# 중복 제거
 origins = list(set(origins))
-
-print(f"CORS Origins: {origins}")  # 디버깅용
-
+print(f"CORS Origins: {origins}")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,       # 허용할 출처 목록
-    allow_credentials=True,      # 쿠키를 포함한 요청을 허용
-    allow_methods=["*"],         # 모든 HTTP 메소드 허용
-    allow_headers=["*"],         # 모든 HTTP 헤더 허용
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ===================================================================
-# 헬스 체크 엔드포인트 추가
+# 헬스 체크 엔드포인트 (기존과 동일)
 # ===================================================================
 @app.get("/")
 def read_root():
@@ -56,9 +46,8 @@ def health_check():
     return {"status": "healthy"}
 
 # ===================================================================
-# 인증 및 사용자 관련 API
+# 인증 및 사용자 관련 API (기존과 동일)
 # ===================================================================
-
 @app.post("/api/token", response_model=schemas.Token)
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), 
@@ -100,57 +89,58 @@ def create_new_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)
     db_user = crud.get_user_by_username(db, username=user_data.username)
     if db_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already registered")
-    
-    # API 계층에서 비밀번호를 해싱합니다.
     hashed_password = security.get_password_hash(user_data.password)
-    
-    # 해싱된 비밀번호를 CRUD 함수에 전달합니다.
     return crud.create_user(db=db, user=user_data, hashed_password=hashed_password)
 
-# ✨ 사용자 삭제 API 엔드포인트 추가
 @app.delete("/api/users/{user_id}", response_model=schemas.User)
 def delete_user_endpoint(
     user_id: int, 
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(security.get_current_teacher) # 선생님만 삭제 가능
+    current_user: models.User = Depends(security.get_current_teacher)
 ):
-    # 삭제하려는 사용자가 본인(선생님)이 아닌지 확인
     if user_id == current_user.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete your own account.")
-
     deleted_user = crud.delete_user(db=db, user_id=user_id)
     if deleted_user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return deleted_user
 
-# ✨ 비밀번호 초기화 API 엔드포인트 추가
 @app.put("/api/users/{user_id}/reset-password", response_model=schemas.User)
 def reset_user_password(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(security.get_current_teacher) # 선생님만 접근 가능
+    current_user: models.User = Depends(security.get_current_teacher)
 ):
-    # 초기화하려는 사용자가 본인(선생님)이 아닌지 확인
     if user_id == current_user.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot reset your own password here.")
-
-    # 새로운 임시 비밀번호 설정
-    new_temporary_password = "1234" # 실제로는 더 복잡하거나 랜덤하게 생성하는 것이 좋습니다.
+    new_temporary_password = "1234"
     hashed_password = security.get_password_hash(new_temporary_password)
-
     updated_user = crud.update_user_password(
         db=db, user_id=user_id, new_hashed_password=hashed_password
     )
     if updated_user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    # 참고: 실제 앱에서는 초기화된 비밀번호를 사용자에게 별도로 알려주는 로직이 필요합니다.
-    # 여기서는 성공적으로 업데이트된 사용자 정보만 반환합니다.
     return updated_user
 
 # ===================================================================
 # 단어장 관련 API
 # ===================================================================
+
+# ✨ 새로 추가된 부분 시작
+@app.get("/api/wordbooks/", response_model=List[schemas.Wordbook])
+def read_my_wordbooks(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """
+    로그인한 사용자가 학생일 경우, 할당된 모든 단어장 목록을 반환합니다.
+    """
+    if current_user.role != 'student':
+        return []
+    
+    wordbooks = crud.get_wordbooks_for_student(db=db, student_id=current_user.id)
+    return wordbooks
+# ✨ 새로 추가된 부분 끝
 
 @app.post("/api/wordbooks/upload/", response_model=schemas.Wordbook, status_code=status.HTTP_201_CREATED)
 def create_wordbook_by_upload(
@@ -171,17 +161,14 @@ def read_wordbook_details(
     db_wordbook = crud.get_wordbook(db, wordbook_id=wordbook_id)
     if db_wordbook is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wordbook not found")
-
     is_owner = db_wordbook.owner_id == current_user.id
     is_assigned_student = current_user in db_wordbook.students
-    
     if not (is_owner or is_assigned_student):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
-
     return db_wordbook
 
 # ===================================================================
-# ✨ 학생 리포트 API 추가
+# 학생 리포트 API (기존과 동일)
 # ===================================================================
 @app.get("/api/students/{student_id}/report", response_model=schemas.StudentReport)
 def get_student_report_endpoint(
