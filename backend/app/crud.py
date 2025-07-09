@@ -39,11 +39,14 @@ def get_wordbook(db: Session, wordbook_id: int):
 def get_wordbooks(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Wordbook).offset(skip).limit(limit).all()
 
+# ✨ 디버깅을 위한 print문 추가
 def get_wordbooks_for_student(db: Session, student_id: int):
     """
     특정 학생 ID로 해당 학생에게 할당된 모든 단어장을 조회합니다.
     (학생 리포트 함수에서 사용된 'assigned_wordbooks' 관계를 사용합니다.)
     """
+    print(f"--- CRUD: Searching for student with ID: {student_id} ---")
+    
     # User 모델에서 학생을 찾고, Eager Loading으로 단어장과 단어까지 함께 불러옵니다.
     student = db.query(models.User).options(
         selectinload(models.User.assigned_wordbooks)
@@ -51,8 +54,18 @@ def get_wordbooks_for_student(db: Session, student_id: int):
     ).filter(models.User.id == student_id).first()
     
     if not student:
+        print(f"--- CRUD: Student with ID {student_id} NOT FOUND. ---")
         return []
     
+    print(f"--- CRUD: Student FOUND: {student.name} ---")
+    print(f"--- CRUD: Checking assigned_wordbooks... ---")
+    print(f"--- CRUD: Number of wordbooks found: {len(student.assigned_wordbooks)} ---")
+    
+    # 실제 할당된 단어장 객체들을 출력해봅니다.
+    if student.assigned_wordbooks:
+        for wb in student.assigned_wordbooks:
+            print(f"--- CRUD: Found Wordbook -> ID: {wb.id}, Title: {wb.title} ---")
+
     return student.assigned_wordbooks
 
 # =================================================================
