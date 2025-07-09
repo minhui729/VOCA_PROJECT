@@ -4,6 +4,10 @@ from sqlalchemy.orm import Session, selectinload, subqueryload
 from sqlalchemy import select
 from typing import List
 from sqlalchemy import func
+import logging # ✨ logging 모듈을 임포트합니다.
+
+# ✨ 로그가 터미널에 잘 보이도록 기본 설정을 추가합니다.
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # security 임포트를 제거하여 순환 참조를 해결합니다.
 from . import models, schemas
@@ -12,10 +16,10 @@ from . import models, schemas
 # 단어장 관련 CRUD
 # =================================================================
 
-# ✨ 단어장 생성 시점 디버깅
+# ✨ 단어장 생성 시점 디버깅 (logging 사용)
 def create_wordbook_for_students(db: Session, wordbook_data: schemas.WordbookUpload, teacher_id: int):
-    print(f"\n--- CREATE: Starting wordbook creation. Title: {wordbook_data.title} ---")
-    print(f"--- CREATE: Student IDs to assign: {wordbook_data.student_ids} ---")
+    logging.info(f"--- CREATE: Starting wordbook creation. Title: {wordbook_data.title} ---")
+    logging.info(f"--- CREATE: Student IDs to assign: {wordbook_data.student_ids} ---")
     
     db_wordbook = models.Wordbook(
         title=wordbook_data.title,
@@ -30,19 +34,19 @@ def create_wordbook_for_students(db: Session, wordbook_data: schemas.WordbookUpl
         models.User.role == models.UserRole.student
     ).all()
 
-    print(f"--- CREATE: Found {len(students_to_assign)} student objects in DB. ---")
+    logging.info(f"--- CREATE: Found {len(students_to_assign)} student objects in DB. ---")
     if students_to_assign:
         for s in students_to_assign:
-            print(f"--- CREATE: Found student to assign -> ID: {s.id}, Name: {s.name} ---")
+            logging.info(f"--- CREATE: Found student to assign -> ID: {s.id}, Name: {s.name} ---")
 
     db_wordbook.students.extend(students_to_assign)
     db.add(db_wordbook)
     db.commit()
     db.refresh(db_wordbook)
 
-    print(f"--- CREATE: Wordbook committed. Checking assigned students on refreshed object... ---")
-    print(f"--- CREATE: Number of students on wordbook object after commit: {len(db_wordbook.students)} ---")
-    print(f"--- CREATE: Wordbook creation process finished. ---\n")
+    logging.info(f"--- CREATE: Wordbook committed. Checking assigned students on refreshed object... ---")
+    logging.info(f"--- CREATE: Number of students on wordbook object after commit: {len(db_wordbook.students)} ---")
+    logging.info(f"--- CREATE: Wordbook creation process finished. ---\n")
 
     return db_wordbook
 
@@ -54,9 +58,9 @@ def get_wordbook(db: Session, wordbook_id: int):
 def get_wordbooks(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Wordbook).offset(skip).limit(limit).all()
 
-# ✨ 단어장 조회 시점 디버깅
+# ✨ 단어장 조회 시점 디버깅 (logging 사용)
 def get_wordbooks_for_student(db: Session, student_id: int):
-    print(f"\n--- RETRIEVE: Searching for student with ID: {student_id} ---")
+    logging.info(f"--- RETRIEVE: Searching for student with ID: {student_id} ---")
     
     student = db.query(models.User).options(
         selectinload(models.User.assigned_wordbooks)
@@ -64,18 +68,18 @@ def get_wordbooks_for_student(db: Session, student_id: int):
     ).filter(models.User.id == student_id).first()
     
     if not student:
-        print(f"--- RETRIEVE: Student with ID {student_id} NOT FOUND. ---")
+        logging.info(f"--- RETRIEVE: Student with ID {student_id} NOT FOUND. ---")
         return []
     
-    print(f"--- RETRIEVE: Student FOUND: {student.name} ---")
-    print(f"--- RETRIEVE: Checking assigned_wordbooks... ---")
-    print(f"--- RETRIEVE: Number of wordbooks found: {len(student.assigned_wordbooks)} ---")
+    logging.info(f"--- RETRIEVE: Student FOUND: {student.name} ---")
+    logging.info(f"--- RETRIEVE: Checking assigned_wordbooks... ---")
+    logging.info(f"--- RETRIEVE: Number of wordbooks found: {len(student.assigned_wordbooks)} ---")
     
     if student.assigned_wordbooks:
         for wb in student.assigned_wordbooks:
-            print(f"--- RETRIEVE: Found Wordbook -> ID: {wb.id}, Title: {wb.title} ---")
+            logging.info(f"--- RETRIEVE: Found Wordbook -> ID: {wb.id}, Title: {wb.title} ---")
     
-    print(f"--- RETRIEVE: Wordbook retrieval process finished. ---\n")
+    logging.info(f"--- RETRIEVE: Wordbook retrieval process finished. ---\n")
     return student.assigned_wordbooks
 
 # =================================================================
