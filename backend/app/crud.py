@@ -12,7 +12,11 @@ from . import models, schemas
 # 단어장 관련 CRUD
 # =================================================================
 
+# ✨ 단어장 생성 시점 디버깅
 def create_wordbook_for_students(db: Session, wordbook_data: schemas.WordbookUpload, teacher_id: int):
+    print(f"\n--- CREATE: Starting wordbook creation. Title: {wordbook_data.title} ---")
+    print(f"--- CREATE: Student IDs to assign: {wordbook_data.student_ids} ---")
+    
     db_wordbook = models.Wordbook(
         title=wordbook_data.title,
         description=wordbook_data.description,
@@ -20,18 +24,29 @@ def create_wordbook_for_students(db: Session, wordbook_data: schemas.WordbookUpl
     )
     db_words = [models.Word(**word.model_dump()) for word in wordbook_data.words]
     db_wordbook.words = db_words
+    
     students_to_assign = db.query(models.User).filter(
         models.User.id.in_(wordbook_data.student_ids),
         models.User.role == models.UserRole.student
     ).all()
+
+    print(f"--- CREATE: Found {len(students_to_assign)} student objects in DB. ---")
+    if students_to_assign:
+        for s in students_to_assign:
+            print(f"--- CREATE: Found student to assign -> ID: {s.id}, Name: {s.name} ---")
+
     db_wordbook.students.extend(students_to_assign)
     db.add(db_wordbook)
     db.commit()
     db.refresh(db_wordbook)
+
+    print(f"--- CREATE: Wordbook committed. Checking assigned students on refreshed object... ---")
+    print(f"--- CREATE: Number of students on wordbook object after commit: {len(db_wordbook.students)} ---")
+    print(f"--- CREATE: Wordbook creation process finished. ---\n")
+
     return db_wordbook
 
 def get_wordbook(db: Session, wordbook_id: int):
-    # 단어장과 포함된 단어들을 함께 로딩 (Eager Loading)
     return db.query(models.Wordbook).options(
         selectinload(models.Wordbook.words)
     ).filter(models.Wordbook.id == wordbook_id).first()
@@ -39,39 +54,33 @@ def get_wordbook(db: Session, wordbook_id: int):
 def get_wordbooks(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Wordbook).offset(skip).limit(limit).all()
 
-# ✨ 디버깅을 위한 print문 추가
+# ✨ 단어장 조회 시점 디버깅
 def get_wordbooks_for_student(db: Session, student_id: int):
-    """
-    특정 학생 ID로 해당 학생에게 할당된 모든 단어장을 조회합니다.
-    (학생 리포트 함수에서 사용된 'assigned_wordbooks' 관계를 사용합니다.)
-    """
-    print(f"--- CRUD: Searching for student with ID: {student_id} ---")
+    print(f"\n--- RETRIEVE: Searching for student with ID: {student_id} ---")
     
-    # User 모델에서 학생을 찾고, Eager Loading으로 단어장과 단어까지 함께 불러옵니다.
     student = db.query(models.User).options(
         selectinload(models.User.assigned_wordbooks)
         .selectinload(models.Wordbook.words)
     ).filter(models.User.id == student_id).first()
     
     if not student:
-        print(f"--- CRUD: Student with ID {student_id} NOT FOUND. ---")
+        print(f"--- RETRIEVE: Student with ID {student_id} NOT FOUND. ---")
         return []
     
-    print(f"--- CRUD: Student FOUND: {student.name} ---")
-    print(f"--- CRUD: Checking assigned_wordbooks... ---")
-    print(f"--- CRUD: Number of wordbooks found: {len(student.assigned_wordbooks)} ---")
+    print(f"--- RETRIEVE: Student FOUND: {student.name} ---")
+    print(f"--- RETRIEVE: Checking assigned_wordbooks... ---")
+    print(f"--- RETRIEVE: Number of wordbooks found: {len(student.assigned_wordbooks)} ---")
     
-    # 실제 할당된 단어장 객체들을 출력해봅니다.
     if student.assigned_wordbooks:
         for wb in student.assigned_wordbooks:
-            print(f"--- CRUD: Found Wordbook -> ID: {wb.id}, Title: {wb.title} ---")
-
+            print(f"--- RETRIEVE: Found Wordbook -> ID: {wb.id}, Title: {wb.title} ---")
+    
+    print(f"--- RETRIEVE: Wordbook retrieval process finished. ---\n")
     return student.assigned_wordbooks
 
 # =================================================================
-# 사용자 관련 CRUD
+# (이하 다른 CRUD 함수들은 기존과 동일)
 # =================================================================
-
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
@@ -84,12 +93,11 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
 def get_all_students(db: Session):
     return db.query(models.User).filter(models.User.role == models.UserRole.student).all()
 
-# create_user 함수가 해싱된 비밀번호를 직접 받도록 수정
 def create_user(db: Session, user: schemas.UserCreate, hashed_password: str):
     db_user = models.User(
         username=user.username,
         name=user.name,
-        hashed_password=hashed_password, # 미리 해싱된 비밀번호 사용
+        hashed_password=hashed_password,
         role=user.role
     )
     db.add(db_user)
@@ -97,7 +105,6 @@ def create_user(db: Session, user: schemas.UserCreate, hashed_password: str):
     db.refresh(db_user)
     return db_user
 
-# ✨ 해싱된 비밀번호를 받아와서 업데이트하도록 함수 수정
 def update_user_password(db: Session, user_id: int, new_hashed_password: str):
     db_user = get_user(db, user_id=user_id)
     if db_user:
@@ -115,10 +122,6 @@ def delete_user(db: Session, user_id: int):
         return db_user
     return None
 
-# =================================================================
-# 시험 관련 CRUD
-# =================================================================
-
 def create_test(db: Session, test: schemas.TestCreate, creator_id: int):
     db_test = models.Test(
         title=test.title,
@@ -130,15 +133,11 @@ def create_test(db: Session, test: schemas.TestCreate, creator_id: int):
     db.refresh(db_test)
     return db_test
 
-# =================================================================
-# 학생 리포트 관련 CRUD
-# =================================================================
 def get_student_report(db: Session, student_id: int):
-    # ✨ 올바른 관계를 사용하여 데이터를 한 번에 로드하도록 쿼리 수정
     student = db.query(models.User).options(
         subqueryload(models.User.assigned_wordbooks)
-        .subqueryload(models.Wordbook.tests)  # Wordbook -> Test
-        .subqueryload(models.Test.results)    # Test -> TestResult
+        .subqueryload(models.Wordbook.tests)
+        .subqueryload(models.Test.results)
     ).filter(models.User.id == student_id).first()
 
     if not student:
@@ -152,12 +151,9 @@ def get_student_report(db: Session, student_id: int):
 
     for wb in student.assigned_wordbooks:
         all_results_for_wb = []
-        # ✨ Wordbook에 속한 모든 Test를 순회
         for test in wb.tests:
-            # ✨ 각 Test에 속한 모든 Result를 추가
             all_results_for_wb.extend(test.results)
 
-        # 해당 학생의 시험 결과만 필터링
         student_results = [res for res in all_results_for_wb if res.student_id == student_id]
         
         avg_score = None
@@ -165,7 +161,6 @@ def get_student_report(db: Session, student_id: int):
             total_score = sum(res.score for res in student_results)
             avg_score = total_score / len(student_results)
 
-        # 최근 순으로 정렬하여 스키마 생성
         sorted_results = sorted(student_results, key=lambda r: r.submitted_at, reverse=True)
 
         wb_report = schemas.WordbookReport(
