@@ -6,10 +6,6 @@ from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 import os
-import logging # ✨ logging 모듈을 main.py에도 임포트합니다.
-
-# ✨ 로깅 기본 설정
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 from . import crud, models, schemas, security
 from .database import get_db
@@ -17,7 +13,7 @@ from .database import get_db
 app = FastAPI()
 
 # ===================================================================
-# CORS 설정 (기존과 동일)
+# CORS 설정
 # ===================================================================
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else []
@@ -42,7 +38,6 @@ app.add_middleware(
 # ===================================================================
 @app.get("/")
 def read_root():
-    # 이전 테스트 메시지를 원래대로 되돌립니다.
     return {"message": "Vocabulary API is running"}
 
 @app.get("/health")
@@ -50,7 +45,7 @@ def health_check():
     return {"status": "healthy"}
 
 # ===================================================================
-# 인증 및 사용자 관련 API (기존과 동일)
+# 인증 및 사용자 관련 API
 # ===================================================================
 @app.post("/api/token", response_model=schemas.Token)
 def login_for_access_token(
@@ -80,7 +75,6 @@ def login_for_access_token(
 def read_users_me(current_user: models.User = Depends(security.get_current_user)):
     return current_user
 
-# ... (다른 사용자 관련 API는 기존과 동일) ...
 @app.get("/api/teacher/students/", response_model=List[schemas.Student])
 def read_all_students(
     db: Session = Depends(get_db),
@@ -139,16 +133,11 @@ def read_my_wordbooks(
     """
     로그인한 사용자가 학생일 경우, 할당된 모든 단어장 목록을 반환합니다.
     """
-    # ✨ 여기에 직접 로그를 추가하여 테스트합니다.
-    logging.info(f"--- MAIN.PY: API /api/wordbooks/ CALLED for user: {current_user.username} ---")
-
-    if current_user.role != 'student':
-        logging.warning(f"--- MAIN.PY: User {current_user.username} is not a student. Returning empty list. ---")
+    # ✨ Enum 타입을 직접 비교하도록 수정
+    if current_user.role != models.UserRole.student:
         return []
     
-    logging.info(f"--- MAIN.PY: Calling crud.get_wordbooks_for_student for student ID: {current_user.id} ---")
     wordbooks = crud.get_wordbooks_for_student(db=db, student_id=current_user.id)
-    logging.info(f"--- MAIN.PY: crud function returned {len(wordbooks)} wordbooks. ---")
     return wordbooks
 
 @app.post("/api/wordbooks/upload/", response_model=schemas.Wordbook, status_code=status.HTTP_201_CREATED)
@@ -177,7 +166,7 @@ def read_wordbook_details(
     return db_wordbook
 
 # ===================================================================
-# 학생 리포트 API (기존과 동일)
+# 학생 리포트 API
 # ===================================================================
 @app.get("/api/students/{student_id}/report", response_model=schemas.StudentReport)
 def get_student_report_endpoint(
@@ -189,4 +178,3 @@ def get_student_report_endpoint(
     if not report:
         raise HTTPException(status_code=404, detail="Student not found or no report available.")
     return report
-

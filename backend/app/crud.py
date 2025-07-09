@@ -4,23 +4,14 @@ from sqlalchemy.orm import Session, selectinload, subqueryload
 from sqlalchemy import select
 from typing import List
 from sqlalchemy import func
-import logging # ✨ logging 모듈을 임포트합니다.
 
-# ✨ 로그가 터미널에 잘 보이도록 기본 설정을 추가합니다.
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# security 임포트를 제거하여 순환 참조를 해결합니다.
 from . import models, schemas
 
 # =================================================================
 # 단어장 관련 CRUD
 # =================================================================
 
-# ✨ 단어장 생성 시점 디버깅 (logging 사용)
 def create_wordbook_for_students(db: Session, wordbook_data: schemas.WordbookUpload, teacher_id: int):
-    logging.info(f"--- CREATE: Starting wordbook creation. Title: {wordbook_data.title} ---")
-    logging.info(f"--- CREATE: Student IDs to assign: {wordbook_data.student_ids} ---")
-    
     db_wordbook = models.Wordbook(
         title=wordbook_data.title,
         description=wordbook_data.description,
@@ -34,20 +25,10 @@ def create_wordbook_for_students(db: Session, wordbook_data: schemas.WordbookUpl
         models.User.role == models.UserRole.student
     ).all()
 
-    logging.info(f"--- CREATE: Found {len(students_to_assign)} student objects in DB. ---")
-    if students_to_assign:
-        for s in students_to_assign:
-            logging.info(f"--- CREATE: Found student to assign -> ID: {s.id}, Name: {s.name} ---")
-
     db_wordbook.students.extend(students_to_assign)
     db.add(db_wordbook)
     db.commit()
     db.refresh(db_wordbook)
-
-    logging.info(f"--- CREATE: Wordbook committed. Checking assigned students on refreshed object... ---")
-    logging.info(f"--- CREATE: Number of students on wordbook object after commit: {len(db_wordbook.students)} ---")
-    logging.info(f"--- CREATE: Wordbook creation process finished. ---\n")
-
     return db_wordbook
 
 def get_wordbook(db: Session, wordbook_id: int):
@@ -58,32 +39,22 @@ def get_wordbook(db: Session, wordbook_id: int):
 def get_wordbooks(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Wordbook).offset(skip).limit(limit).all()
 
-# ✨ 단어장 조회 시점 디버깅 (logging 사용)
 def get_wordbooks_for_student(db: Session, student_id: int):
-    logging.info(f"--- RETRIEVE: Searching for student with ID: {student_id} ---")
-    
+    """
+    특정 학생 ID로 해당 학생에게 할당된 모든 단어장을 조회합니다.
+    """
     student = db.query(models.User).options(
         selectinload(models.User.assigned_wordbooks)
         .selectinload(models.Wordbook.words)
     ).filter(models.User.id == student_id).first()
     
     if not student:
-        logging.info(f"--- RETRIEVE: Student with ID {student_id} NOT FOUND. ---")
         return []
     
-    logging.info(f"--- RETRIEVE: Student FOUND: {student.name} ---")
-    logging.info(f"--- RETRIEVE: Checking assigned_wordbooks... ---")
-    logging.info(f"--- RETRIEVE: Number of wordbooks found: {len(student.assigned_wordbooks)} ---")
-    
-    if student.assigned_wordbooks:
-        for wb in student.assigned_wordbooks:
-            logging.info(f"--- RETRIEVE: Found Wordbook -> ID: {wb.id}, Title: {wb.title} ---")
-    
-    logging.info(f"--- RETRIEVE: Wordbook retrieval process finished. ---\n")
     return student.assigned_wordbooks
 
 # =================================================================
-# (이하 다른 CRUD 함수들은 기존과 동일)
+# 사용자 관련 CRUD
 # =================================================================
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
@@ -126,6 +97,10 @@ def delete_user(db: Session, user_id: int):
         return db_user
     return None
 
+# =================================================================
+# 시험 관련 CRUD
+# =================================================================
+
 def create_test(db: Session, test: schemas.TestCreate, creator_id: int):
     db_test = models.Test(
         title=test.title,
@@ -137,6 +112,9 @@ def create_test(db: Session, test: schemas.TestCreate, creator_id: int):
     db.refresh(db_test)
     return db_test
 
+# =================================================================
+# 학생 리포트 관련 CRUD
+# =================================================================
 def get_student_report(db: Session, student_id: int):
     student = db.query(models.User).options(
         subqueryload(models.User.assigned_wordbooks)
