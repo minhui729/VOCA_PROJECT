@@ -32,7 +32,7 @@ def create_wordbook_for_students(db: Session, wordbook_data: schemas.WordbookUpl
     return db_wordbook
 
 def get_wordbook(db: Session, wordbook_id: int):
-    # ✨ 단어장, 단어, 할당된 학생 정보를 한 번에 로드하도록 수정 (성능 개선)
+    # 단어장, 단어, 할당된 학생 정보를 한 번에 로드하도록 수정 (성능 개선)
     return db.query(models.Wordbook).options(
         selectinload(models.Wordbook.words),
         selectinload(models.Wordbook.students)
@@ -103,29 +103,7 @@ def delete_user(db: Session, user_id: int):
 # 시험 관련 CRUD
 # =================================================================
 
-# ✨ 퀴즈를 위한 단어 목록을 가져오는 함수 추가
-def get_words_for_quiz(db: Session, wordbook_id: int):
-    """
-    특정 단어장에 속한 모든 단어 목록을 퀴즈용으로 조회합니다.
-    """
-    wordbook = get_wordbook(db, wordbook_id=wordbook_id)
-    if not wordbook:
-        return None
-    return wordbook.words
-
-
-def create_test(db: Session, test: schemas.TestCreate, creator_id: int):
-    db_test = models.Test(
-        title=test.title,
-        wordbook_id=test.wordbook_id,
-        creator_id=creator_id
-    )
-    db.add(db_test)
-    db.commit()
-    db.refresh(db_test)
-    return db_test
-
-# ✨ 퀴즈를 위한 단어 목록을 가져오는 함수 추가
+# ✨ 퀴즈를 위한 단어 목록을 가져오는 함수 (오류 수정: 하나만 남김)
 def get_words_for_quiz(db: Session, wordbook_id: int) -> List[models.Word]:
     """
     특정 단어장에 속한 모든 단어 목록을 퀴즈용으로 조회합니다.
@@ -135,7 +113,7 @@ def get_words_for_quiz(db: Session, wordbook_id: int) -> List[models.Word]:
         return []
     return wordbook.words
 
-# ✨ 퀴즈 질문을 생성하는 로직 함수 추가
+# ✨ 퀴즈 질문을 생성하는 로직 함수 (새로 추가)
 def generate_quiz(words: List[models.Word]) -> List[schemas.QuizQuestion]:
     """
     단어 목록을 받아 객관식/주관식 퀴즈 질문 목록을 생성합니다.
@@ -174,6 +152,18 @@ def generate_quiz(words: List[models.Word]) -> List[schemas.QuizQuestion]:
     
     random.shuffle(questions) # 최종 문제 순서 섞기
     return questions
+
+
+def create_test(db: Session, test: schemas.TestCreate, creator_id: int):
+    db_test = models.Test(
+        title=test.title,
+        wordbook_id=test.wordbook_id,
+        creator_id=creator_id
+    )
+    db.add(db_test)
+    db.commit()
+    db.refresh(db_test)
+    return db_test
 
 # =================================================================
 # 학생 리포트 관련 CRUD

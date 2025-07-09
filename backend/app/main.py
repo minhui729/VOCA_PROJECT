@@ -130,10 +130,6 @@ def read_my_wordbooks(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(security.get_current_user)
 ):
-    """
-    로그인한 사용자가 학생일 경우, 할당된 모든 단어장 목록을 반환합니다.
-    """
-    # ✨ Enum 타입을 직접 비교하도록 수정
     if current_user.role != models.UserRole.student:
         return []
     
@@ -166,49 +162,8 @@ def read_wordbook_details(
     return db_wordbook
 
 # ===================================================================
-# 학생 리포트 API
+# 단어 테스트 API (오류 수정)
 # ===================================================================
-@app.get("/api/students/{student_id}/report", response_model=schemas.StudentReport)
-def get_student_report_endpoint(
-    student_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(security.get_current_teacher)
-):
-    report = crud.get_student_report(db, student_id=student_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Student not found or no report available.")
-    return report
-
-# ===================================================================
-# 단어 테스트 API
-# ===================================================================
-
-@app.get("/api/wordbooks/{wordbook_id}/quiz", response_model=List[schemas.Word])
-def get_quiz_words(
-    wordbook_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(security.get_current_user)
-):
-    # 먼저 단어장에 접근 권한이 있는지 확인합니다.
-    db_wordbook = crud.get_wordbook(db, wordbook_id=wordbook_id)
-    if db_wordbook is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wordbook not found")
-
-    is_owner = db_wordbook.owner_id == current_user.id
-    is_assigned_student = current_user in db_wordbook.students
-    
-    if not (is_owner or is_assigned_student):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions for this wordbook")
-
-    # 권한이 확인되면, 단어 목록을 가져옵니다.
-    words = crud.get_words_for_quiz(db=db, wordbook_id=wordbook_id)
-    
-    if words is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wordbook not found or has no words")
-    
-    return words
-
-# ✨ 아래 퀴즈 API를 새로 추가합니다.
 @app.get("/api/wordbooks/{wordbook_id}/quiz", response_model=List[schemas.QuizQuestion])
 def get_quiz_words(
     wordbook_id: int,
@@ -237,3 +192,17 @@ def get_quiz_words(
     quiz_questions = crud.generate_quiz(words)
     
     return quiz_questions
+
+# ===================================================================
+# 학생 리포트 API
+# ===================================================================
+@app.get("/api/students/{student_id}/report", response_model=schemas.StudentReport)
+def get_student_report_endpoint(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_teacher)
+):
+    report = crud.get_student_report(db, student_id=student_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Student not found or no report available.")
+    return report
