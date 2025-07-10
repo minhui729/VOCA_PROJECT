@@ -83,6 +83,19 @@ def read_all_students(
     students = crud.get_all_students(db)
     return students
 
+@app.get("/api/teacher/students/{student_id}/wordbooks", response_model=List[schemas.Wordbook])
+def get_student_wordbooks(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_teacher) # 선생님만 접근 가능
+):
+    """
+    선생님이 특정 학생에게 할당된 단어장 목록을 조회합니다.
+    """
+    # 기존 crud 함수를 재사용하여 효율적으로 구현합니다.
+    wordbooks = crud.get_wordbooks_for_student(db=db, student_id=student_id)
+    return wordbooks
+
 @app.post("/api/users/", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
 def create_new_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_username(db, username=user_data.username)
@@ -160,6 +173,32 @@ def read_wordbook_details(
     if not (is_owner or is_assigned_student):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
     return db_wordbook
+
+@app.delete("/api/wordbooks/{wordbook_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_wordbook_endpoint(
+    wordbook_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_teacher) # 선생님만 접근 가능
+):
+    """
+    선생님이 자신이 생성한 단어장을 삭제합니다.
+    """
+    # 삭제하려는 단어장을 DB에서 가져옵니다.
+    db_wordbook = crud.get_wordbook(db, wordbook_id=wordbook_id)
+    
+    # 단어장이 없으면 404 오류를 반환합니다.
+    if db_wordbook is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wordbook not found")
+    
+    # 로그인한 선생님이 단어장의 주인이 아니면 403 오류를 반환합니다. (중요!)
+    if db_wordbook.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this wordbook")
+        
+    # crud 함수를 호출하여 단어장을 삭제합니다.
+    crud.delete_wordbook(db=db, wordbook_id=wordbook_id)
+    
+    # 성공 시 204 상태 코드와 함께 빈 응답을 반환합니다.
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 # ===================================================================
 # 단어 테스트 API (오류 수정)

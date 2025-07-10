@@ -4,7 +4,7 @@
 import React, { useState, ChangeEvent, FormEvent, useEffect, useCallback } from 'react';
 import Papa from 'papaparse';
 import { useAuth } from '@/contexts/AuthContext';
-import { CheckCircle, AlertCircle, Loader2, UserPlus, Trash2, KeyRound, X, BookOpen } from 'lucide-react';
+import { CheckCircle, AlertCircle, Loader2, UserPlus, Trash2, KeyRound, X, BookOpen, ChevronRight, Inbox } from 'lucide-react';
 
 // =================================================================
 // 타입 정의
@@ -19,6 +19,11 @@ interface Student {
   id: number;
   username: string;
   name: string;
+}
+interface Wordbook {
+    id: number;
+    title: string;
+    description: string | null;
 }
 interface TestResultReport {
     score: number;
@@ -378,16 +383,173 @@ const WordbookUploadPanel = () => {
   );
 };
 
+// =================================================================
+// ✨ [신규] 단어장 관리 패널 컴포넌트
+// =================================================================
+const WordbookManagementPanel = () => {
+    const { token } = useAuth();
+    const [students, setStudents] = useState<Student[]>([]);
+    const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+    const [wordbooks, setWordbooks] = useState<Wordbook[]>([]);
+    const [isLoadingStudents, setIsLoadingStudents] = useState(true);
+    const [isLoadingWordbooks, setIsLoadingWordbooks] = useState(false);
+    const [error, setError] = useState('');
+    const [wordbookToDelete, setWordbookToDelete] = useState<Wordbook | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // 전체 학생 목록 가져오기
+    useEffect(() => {
+        const fetchAllStudents = async () => {
+            if (!token) return;
+            setIsLoadingStudents(true);
+            try {
+                const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+                const response = await fetch(`${API_BASE_URL}/api/teacher/students/`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!response.ok) throw new Error('학생 목록을 불러오지 못했습니다.');
+                const data: Student[] = await response.json();
+                // 가나다순으로 정렬
+                data.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+                setStudents(data);
+            } catch (err) {
+                if (err instanceof Error) setError(err.message);
+                else setError('알 수 없는 오류가 발생했습니다.');
+            } finally {
+                setIsLoadingStudents(false);
+            }
+        };
+        fetchAllStudents();
+    }, [token]);
+
+    // 특정 학생의 단어장 목록 가져오기
+    const handleStudentSelect = async (student: Student) => {
+        if (selectedStudent?.id === student.id) {
+            setSelectedStudent(null); // 다시 누르면 닫기
+            setWordbooks([]);
+            return;
+        }
+        setSelectedStudent(student);
+        setIsLoadingWordbooks(true);
+        setError('');
+        try {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(`${API_BASE_URL}/api/teacher/students/${student.id}/wordbooks`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (!response.ok) throw new Error('해당 학생의 단어장을 불러오지 못했습니다.');
+            setWordbooks(await response.json());
+        } catch (err) {
+            if (err instanceof Error) setError(err.message);
+            else setError('알 수 없는 오류가 발생했습니다.');
+            setWordbooks([]);
+        } finally {
+            setIsLoadingWordbooks(false);
+        }
+    };
+
+    // 단어장 삭제 처리
+    const handleDeleteWordbook = async () => {
+        if (!wordbookToDelete || !token) return;
+        setIsDeleting(true);
+        try {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(`${API_BASE_URL}/api/wordbooks/${wordbookToDelete.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                const errorData: ApiError = await response.json();
+                throw new Error(errorData.detail || '단어장 삭제에 실패했습니다.');
+            }
+            // 삭제 성공 시, 현재 선택된 학생의 단어장 목록을 다시 불러옵니다.
+            if (selectedStudent) {
+                handleStudentSelect(selectedStudent);
+            }
+        } catch (err) {
+            if (err instanceof Error) setError(err.message);
+            else setError('알 수 없는 오류가 발생했습니다.');
+        } finally {
+            setIsDeleting(false);
+            setWordbookToDelete(null);
+        }
+    };
+    
+    return (
+        <div className="p-4 sm:p-6 bg-white dark:bg-gray-800/50 rounded-lg shadow-md">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">단어장 관리</h2>
+            {error && <div className="mb-4 text-red-500 p-3 bg-red-100 dark:bg-red-900/20 rounded-md">{error}</div>}
+            {isLoadingStudents ? (
+                <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* 학생 목록 */}
+                    <div className="md:col-span-1 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg">
+                        <h3 className="font-semibold text-lg mb-3 text-gray-700 dark:text-gray-200">학생 선택</h3>
+                        <ul className="space-y-2 max-h-96 overflow-y-auto">
+                            {students.map(student => (
+                                <li key={student.id}>
+                                    <button 
+                                        onClick={() => handleStudentSelect(student)}
+                                        className={`w-full text-left flex justify-between items-center p-3 rounded-md transition-colors ${selectedStudent?.id === student.id ? 'bg-blue-100 dark:bg-blue-900/50' : 'hover:bg-gray-200 dark:hover:bg-gray-700/50'}`}
+                                    >
+                                        <span className="font-medium text-gray-800 dark:text-gray-100">{student.name}</span>
+                                        <ChevronRight size={18} className={`text-gray-400 transition-transform ${selectedStudent?.id === student.id ? 'rotate-90' : ''}`} />
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    {/* 선택된 학생의 단어장 목록 */}
+                    <div className="md:col-span-2">
+                        {selectedStudent ? (
+                            <div>
+                                <h3 className="font-semibold text-lg mb-3 text-gray-700 dark:text-gray-200">
+                                    <span className="text-blue-600 dark:text-blue-400 font-bold">{selectedStudent.name}</span> 학생의 단어장
+                                </h3>
+                                {isLoadingWordbooks ? (
+                                    <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>
+                                ) : wordbooks.length > 0 ? (
+                                    <ul className="space-y-3">
+                                        {wordbooks.map(wb => (
+                                            <li key={wb.id} className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                                                <div>
+                                                    <p className="font-semibold text-gray-800 dark:text-gray-100">{wb.title}</p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">{wb.description}</p>
+                                                </div>
+                                                <button onClick={() => setWordbookToDelete(wb)} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full transition-colors">
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                                        <Inbox size={32} className="mx-auto" />
+                                        <p className="mt-2">이 학생에게 할당된 단어장이 없습니다.</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex justify-center items-center h-full text-center text-gray-500 dark:text-gray-400 p-8 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                                <p>왼쪽 목록에서 학생을 선택하여<br/>할당된 단어장을 관리하세요.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+            {/* 단어장 삭제 확인 모달 */}
+            {wordbookToDelete && (<div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"><div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-8 w-full max-w-md m-4"><h3 className="text-2xl font-bold text-gray-800 dark:text-white">단어장 삭제 확인</h3><p className="mt-4 text-gray-600 dark:text-gray-300">정말로 <span className="font-bold text-red-500">{wordbookToDelete.title}</span> 단어장을 삭제하시겠습니까? 이 단어장은 모든 학생에게서 삭제되며, 되돌릴 수 없습니다.</p><div className="mt-6 flex justify-end gap-4"><button onClick={() => setWordbookToDelete(null)} disabled={isDeleting} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50">취소</button><button onClick={handleDeleteWordbook} disabled={isDeleting} className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 disabled:bg-red-400 flex items-center gap-2">{isDeleting ? <Loader2 className="animate-spin" /> : <Trash2 size={18} />}삭제 확인</button></div></div></div>)}
+        </div>
+    );
+};
+
+
 // --- 메인 대시보드 페이지 ---
 export default function TeacherDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'students' | 'upload'>('students');
-  // ✨ useAuth 훅을 호출하여 logout 함수를 가져옵니다.
+  // ✨ 'wordbook-management' 탭 추가
+  const [activeTab, setActiveTab] = useState<'students' | 'upload' | 'wordbook-management'>('students');
   const { logout } = useAuth();
 
   return (
     <div className="min-h-screen w-full bg-gray-100 dark:bg-gray-900">
       <header className="bg-white dark:bg-gray-800 shadow-sm">
-        {/* ✨ 헤더 div를 flex 컨테이너로 만들고, 버튼을 오른쪽에 배치합니다. */}
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">선생님 대시보드</h1>
           <button
@@ -413,11 +575,20 @@ export default function TeacherDashboardPage() {
             >
               단어장 등록
             </button>
+            {/* ✨ '단어장 관리' 탭 버튼 추가 */}
+            <button 
+              onClick={() => setActiveTab('wordbook-management')} 
+              className={`${activeTab === 'wordbook-management' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+            >
+              단어장 관리
+            </button>
           </nav>
         </div>
         <div>
           {activeTab === 'students' && <StudentManagementPanel />}
           {activeTab === 'upload' && <WordbookUploadPanel />}
+          {/* ✨ '단어장 관리' 탭 선택 시 해당 패널 렌더링 */}
+          {activeTab === 'wordbook-management' && <WordbookManagementPanel />}
         </div>
       </main>
     </div>

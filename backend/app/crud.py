@@ -55,6 +55,22 @@ def get_wordbooks_for_student(db: Session, student_id: int):
     
     return student.assigned_wordbooks
 
+def delete_wordbook(db: Session, wordbook_id: int):
+    """
+    ID를 기준으로 단어장을 삭제합니다.
+    """
+    # 삭제할 단어장 객체를 가져옵니다.
+    db_wordbook = get_wordbook(db, wordbook_id=wordbook_id)
+    
+    if db_wordbook:
+        # 데이터베이스에서 객체를 삭제합니다.
+        db.delete(db_wordbook)
+        # 변경 사항을 커밋합니다.
+        db.commit()
+    
+    # 삭제된 객체 정보를 반환합니다 (필요시 사용).
+    return db_wordbook
+
 # =================================================================
 # 사용자 관련 CRUD
 # =================================================================
