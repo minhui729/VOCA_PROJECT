@@ -54,7 +54,6 @@ const StudentReportModal = ({ student, token, onClose }: { student: Student; tok
             setIsLoading(true);
             setError('');
             try {
-                // ✨ API 주소를 환경 변수에서 가져오도록 수정
                 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
                 const response = await fetch(`${API_BASE_URL}/api/students/${student.id}/report`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -382,12 +381,40 @@ const WordbookUploadPanel = () => {
 // --- 메인 대시보드 페이지 ---
 export default function TeacherDashboardPage() {
   const [activeTab, setActiveTab] = useState<'students' | 'upload'>('students');
+  // ✨ useAuth 훅을 호출하여 logout 함수를 가져옵니다.
+  const { logout } = useAuth();
 
   return (
     <div className="min-h-screen w-full bg-gray-100 dark:bg-gray-900">
-      <header className="bg-white dark:bg-gray-800 shadow-sm"><div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4"><h1 className="text-3xl font-bold text-gray-900 dark:text-white">선생님 대시보드</h1></div></header>
+      <header className="bg-white dark:bg-gray-800 shadow-sm">
+        {/* ✨ 헤더 div를 flex 컨테이너로 만들고, 버튼을 오른쪽에 배치합니다. */}
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">선생님 대시보드</h1>
+          <button
+            onClick={logout}
+            className="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-semibold rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600 transition-colors"
+          >
+            로그아웃
+          </button>
+        </div>
+      </header>
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6 border-b border-gray-200 dark:border-gray-700"><nav className="-mb-px flex space-x-8" aria-label="Tabs"><button onClick={() => setActiveTab('students')} className={`${activeTab === 'students' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>학생 관리</button><button onClick={() => setActiveTab('upload')} className={`${activeTab === 'upload' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>단어장 등록</button></nav></div>
+        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+            <button 
+              onClick={() => setActiveTab('students')} 
+              className={`${activeTab === 'students' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+            >
+              학생 관리
+            </button>
+            <button 
+              onClick={() => setActiveTab('upload')} 
+              className={`${activeTab === 'upload' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+            >
+              단어장 등록
+            </button>
+          </nav>
+        </div>
         <div>
           {activeTab === 'students' && <StudentManagementPanel />}
           {activeTab === 'upload' && <WordbookUploadPanel />}
