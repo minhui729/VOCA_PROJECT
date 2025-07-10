@@ -121,10 +121,13 @@ def generate_quiz(words: List[models.Word]) -> List[schemas.QuizQuestion]:
     if not words:
         return []
 
+    num_questions = max(1, len(words) // 2)
+    selected_words = random.sample(words, num_questions)
+
     questions: List[schemas.QuizQuestion] = []
     all_meanings = [w.meaning for w in words]
 
-    for word in words:
+    for word in selected_words:
         # 단어가 4개 미만이면 주관식만, 그 이상이면 50% 확률로 문제 유형 결정
         question_type = 'written'
         if len(words) >= 4 and random.random() > 0.5:

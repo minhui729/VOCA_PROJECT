@@ -2,11 +2,11 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation'; // useRouter 추가
 import { useAuth } from '@/contexts/AuthContext';
-import { CheckCircle, XCircle, RefreshCw, ArrowRight, Loader2, BrainCircuit, BookText } from 'lucide-react';
+import { CheckCircle, XCircle, RefreshCw, ArrowRight, Loader2, BrainCircuit, BookText, LogOut } from 'lucide-react'; // LogOut 아이콘 추가
 import { cva } from 'class-variance-authority';
-import Link from 'next/link'; // ✨ Link 컴포넌트 추가
+import Link from 'next/link';
 
 
 // --- 타입 정의 ---
@@ -27,7 +27,6 @@ type QuizQuestion = MultipleChoiceQuestion | WrittenQuestion;
 
 // --- 각 퀴즈 유형별 컴포넌트 ---
 
-// ✨ 개선: cva를 사용하여 버튼 스타일 정의
 const choiceButtonVariants = cva(
   "p-4 border rounded-lg text-lg transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:opacity-50",
   {
@@ -77,7 +76,6 @@ const MultipleChoiceComponent = ({ question, onSubmit, isParentSubmitted }: { qu
             key={index}
             onClick={() => !isParentSubmitted && setSelectedAnswer(choice)}
             disabled={isParentSubmitted}
-            // ✨ 개선: cva를 사용하여 조건부 스타일링 단순화
             className={choiceButtonVariants({ state: getButtonState(choice) })}
           >
             {choice}
@@ -141,7 +139,6 @@ const WrittenComponent = ({ question, onSubmit, isParentSubmitted }: { question:
   );
 };
 
-// ✨ 신규: 피드백 및 다음 버튼 컴포넌트
 const QuizFeedback = ({
   isCorrect,
   correctAnswer,
@@ -182,6 +179,7 @@ const QuizFeedback = ({
 
 export default function QuizPage() {
   const params = useParams();
+  const router = useRouter(); // ✨ useRouter 훅 사용
   const wordbookId = params.id;
   const { token, isLoading: isAuthLoading } = useAuth();
 
@@ -194,6 +192,9 @@ export default function QuizPage() {
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [score, setScore] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
+  
+  // ✨ 나가기 확인 모달 상태
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   useEffect(() => {
     if (isAuthLoading) return;
@@ -209,7 +210,6 @@ export default function QuizPage() {
       }
 
       try {
-        // ✨ 개선: 환경변수를 사용한 API URL 관리 권장
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
         const response = await fetch(`${API_BASE_URL}/api/wordbooks/${wordbookId}/quiz`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -233,7 +233,7 @@ export default function QuizPage() {
           throw new Error('생성된 퀴즈가 없습니다. 단어장에 단어를 추가해주세요.');
         }
 
-        setQuestions(data.sort(() => Math.random() - 0.5));
+        setQuestions(data); // ✨ 백엔드에서 섞어서 오므로 프론트에서 또 섞을 필요 없음
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -265,7 +265,23 @@ export default function QuizPage() {
   };
 
   const handleRestart = () => {
-    setQuestions(prev => [...prev].sort(() => Math.random() - 0.5));
+    // ✨ 다시 시작할 때도 fetchQuiz를 호출하여 새로운 문제 세트를 받음
+    const fetchQuizAgain = async () => {
+        setLoading(true);
+        try {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(`${API_BASE_URL}/api/wordbooks/${wordbookId}/quiz`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            setQuestions(data);
+        } catch (err) {
+            setError("퀴즈를 다시 불러오는 데 실패했습니다.");
+        } finally {
+            setLoading(false);
+        }
+    }
+    fetchQuizAgain();
     setCurrentQuestionIndex(0);
     setScore(0);
     setQuizFinished(false);
@@ -315,24 +331,42 @@ export default function QuizPage() {
               {questions.length}문제 중 {score}개를 맞혔습니다.
             </p>
           </div>
-          <div className="felx flex-col gap-3">
+          <div className="flex flex-col gap-3">
             <button onClick={handleRestart}
               className="w-full flex items-center justify-center gap-2 bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-500 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-50"
               >
                 <RefreshCw size={20} />
                 새로운 퀴즈 풀기
             </button>
-            <Link href={`/wordbooks/${wordbookId}`}
-              className="w-full flex items-center justify-center gap-2 bg-slate-600/80 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-600/80 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-50"
+            <Link href={`/student/dashboard`}
+              className="w-full flex items-center justify-center gap-2 bg-slate-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-500 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-opacity-50"
               >
                 <BookText size={20} />
-                단어장으로 돌아가기 
+                대시보드로 돌아가기 
             </Link>
           </div>
         </div>
       </div>
     );
   };
+  
+  // ✨ 나가기 확인 모달 렌더링 함수
+  const renderExitModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+        <div className="bg-slate-800 rounded-lg shadow-2xl p-8 w-full max-w-sm m-4 text-center">
+            <h3 className="text-xl font-bold text-white">퀴즈 나가기</h3>
+            <p className="mt-4 text-slate-300">퀴즈를 중단하고 나가시겠습니까?<br/>현재 진행 상황은 저장되지 않습니다.</p>
+            <div className="mt-8 flex justify-center gap-4">
+                <button onClick={() => setIsExitModalOpen(false)} className="px-6 py-2 bg-slate-600 text-white font-semibold rounded-lg hover:bg-slate-500 transition-colors">
+                    계속 풀기
+                </button>
+                <button onClick={() => router.push('/student/dashboard')} className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-500 transition-colors">
+                    나가기
+                </button>
+            </div>
+        </div>
+    </div>
+  );
 
   const renderQuestionComponent = () => {
     const currentQuestion = questions[currentQuestionIndex];
@@ -355,6 +389,16 @@ export default function QuizPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 p-4 selection:bg-sky-300/30">
+        {/* ✨ 나가기 버튼 추가 */}
+        <div className="absolute top-4 right-4">
+            <button onClick={() => setIsExitModalOpen(true)} className="flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/80 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors">
+                <LogOut size={16} />
+                나가기
+            </button>
+        </div>
+
+        {isExitModalOpen && renderExitModal()}
+
       <div className="w-full max-w-4xl">
         <div className="mb-8">
           <div className="flex justify-between mb-2 text-sm font-medium text-slate-300">
@@ -366,7 +410,6 @@ export default function QuizPage() {
           </div>
         </div>
         
-        {/* ✨ 개선: 메인 컨텐츠 영역과 피드백 영역을 분리하여 레이아웃 안정성 확보 */}
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
             <div className="w-full p-6 md:p-10 bg-slate-800/60 backdrop-blur-sm border border-slate-700 rounded-2xl shadow-2xl shadow-sky-900/20 min-h-[400px] flex items-center justify-center">
                 {renderQuestionComponent()}
