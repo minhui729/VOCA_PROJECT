@@ -156,7 +156,9 @@ const StudentManagementPanel = () => {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
       const response = await fetch(`${API_BASE_URL}/api/teacher/students/`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (response.ok) {
-        setStudents(await response.json());
+        const data: Student[] = await response.json();
+        data.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+        setStudents(data);
       } else {
         setError('학생 목록을 불러오는데 실패했습니다.');
       }
