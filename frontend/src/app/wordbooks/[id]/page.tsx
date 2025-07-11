@@ -26,14 +26,24 @@ interface ApiError {
 }
 
 // --- 메인 컴포넌트 ---
-// ✨ params 타입을 Promise가 아닌 객체로 직접 받도록 수정합니다.
-export default function WordbookDetailPage({ params }: { params: { id: string } }) {
+// ✨ 에러 해결을 위해 params 타입을 Promise를 받는 원래 방식으로 되돌립니다.
+export default function WordbookDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { token, isLoading: isAuthLoading } = useAuth();
   const [wordbook, setWordbook] = useState<Wordbook | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPartInfo, setShowPartInfo] = useState(false);
-  const wordbookId = params.id; // ✨ params에서 id를 직접 사용합니다.
+  
+  // ✨ 에러 해결을 위해 useState와 useEffect를 사용하여 wordbookId를 관리합니다.
+  const [wordbookId, setWordbookId] = useState<string>('');
+  useEffect(() => {
+    const resolveParams = async () => {
+      const resolvedParams = await params;
+      setWordbookId(resolvedParams.id);
+    };
+    resolveParams();
+  }, [params]);
+
 
   // 품사 약어 매핑
   const partOfSpeechAbbr: { [key: string]: string } = {
@@ -50,7 +60,7 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
   // 단어장 데이터 불러오기
   useEffect(() => {
     const fetchWordbookDetail = async () => {
-      // wordbookId가 없으면 실행하지 않음 (URL이 아직 준비되지 않은 경우)
+      // wordbookId가 없으면 실행하지 않음
       if (!wordbookId) return; 
       
       setIsLoading(true);
@@ -82,8 +92,8 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
       }
     };
     
-    // 인증 정보 로딩이 끝나고 토큰이 있을 때만 데이터를 가져옵니다.
-    if (!isAuthLoading && token) {
+    // 인증 정보 로딩이 끝나고 토큰과 wordbookId가 있을 때만 데이터를 가져옵니다.
+    if (!isAuthLoading && token && wordbookId) {
       fetchWordbookDetail();
     } else if (!isAuthLoading && !token) {
       setError('로그인이 필요합니다. 잠시 후 로그인 페이지로 이동합니다.');
@@ -146,7 +156,6 @@ export default function WordbookDetailPage({ params }: { params: { id: string } 
           </button>
         </div>
 
-        {/* ✨ 버튼 영역 수정 */}
         <div className="my-8 text-center">
             <div className="flex justify-center items-center gap-4">
                 <Link href={`/wordbooks/${wordbookId}/study`} passHref>
