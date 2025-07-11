@@ -96,9 +96,8 @@ export default function StudyPage() {
     setStudyFinished(false);
   };
 
+  // ✨ 컴파일 오류 해결: speak 함수는 문자열만 받도록 하고, 이벤트 처리는 onClick에서 직접 합니다.
   const speak = (text: string) => {
-    // 이벤트 버블링을 막아 카드가 뒤집히지 않도록 합니다.
-    event?.stopPropagation(); 
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'en-US';
@@ -202,7 +201,14 @@ export default function StudyPage() {
                   <div className="card-face card-face-front cursor-pointer">
                     <div className="flex items-center gap-4">
                         <h2 className="text-5xl md:text-7xl font-bold">{currentWord?.text}</h2>
-                        <button onClick={speak} className="text-slate-400 hover:text-sky-400 transition">
+                        {/* ✨ 컴파일 오류 해결: onClick 핸들러 수정 */}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation(); // 카드가 뒤집히는 것을 방지
+                            speak(currentWord?.text || '');
+                          }} 
+                          className="text-slate-400 hover:text-sky-400 transition"
+                        >
                             <Volume2 size={32} />
                         </button>
                     </div>
