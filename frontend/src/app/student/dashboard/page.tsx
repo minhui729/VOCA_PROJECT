@@ -229,10 +229,11 @@ export default function StudentDashboard() {
                   </p>
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                  <Link href={`/wordbooks/${wordbook.id}/study`} passHref>
+                  {/* ✨ '단어 암기' 버튼의 링크를 단어장 상세 페이지로 수정합니다. */}
+                  <Link href={`/wordbooks/${wordbook.id}`} passHref>
                     <button className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all">
                       <BookMarked size={16} />
-                      단어 암기
+                      단어 보기
                     </button>
                   </Link>
                   <Link href={`/wordbooks/${wordbook.id}/quiz`} passHref>
