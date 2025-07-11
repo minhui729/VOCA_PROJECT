@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
-import { Volume2, Info, ArrowLeft, Loader2 } from 'lucide-react';
+import { Volume2, Info, ArrowLeft, Loader2, BookMarked, Puzzle } from 'lucide-react'; // 아이콘 추가
 
 // --- 타입 정의 ---
 interface Word {
@@ -26,13 +26,14 @@ interface ApiError {
 }
 
 // --- 메인 컴포넌트 ---
-export default function WordbookDetailPage({ params }: { params: Promise<{ id: string }> }) {
+// ✨ params 타입을 Promise가 아닌 객체로 직접 받도록 수정합니다.
+export default function WordbookDetailPage({ params }: { params: { id: string } }) {
   const { token, isLoading: isAuthLoading } = useAuth();
   const [wordbook, setWordbook] = useState<Wordbook | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPartInfo, setShowPartInfo] = useState(false);
-  const [wordbookId, setWordbookId] = useState<string>('');
+  const wordbookId = params.id; // ✨ params에서 id를 직접 사용합니다.
 
   // 품사 약어 매핑
   const partOfSpeechAbbr: { [key: string]: string } = {
@@ -46,30 +47,19 @@ export default function WordbookDetailPage({ params }: { params: Promise<{ id: s
     'interjection': 'interj.',
   };
 
-  // params를 resolve하는 useEffect
-  useEffect(() => {
-    const resolveParams = async () => {
-      const resolvedParams = await params;
-      setWordbookId(resolvedParams.id);
-    };
-    resolveParams();
-  }, [params]);
-
   // 단어장 데이터 불러오기
   useEffect(() => {
     const fetchWordbookDetail = async () => {
-      if (!wordbookId) return; // wordbookId가 없으면 실행하지 않음
+      // wordbookId가 없으면 실행하지 않음 (URL이 아직 준비되지 않은 경우)
+      if (!wordbookId) return; 
       
       setIsLoading(true);
       setError('');
       try {
         if (!token) {
-            // 이 로직은 하단의 isAuthLoading, token 의존성 배열 체크에서 이미 처리되지만,
-            // 만약을 위한 방어 코드로 유지합니다.
             throw new Error("로그인이 필요합니다.");
         }
         
-        // API 주소를 환경 변수에서 가져오도록 수정
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
         const response = await fetch(`${API_BASE_URL}/api/wordbooks/${wordbookId}`, {
           headers: { 'Authorization': `Bearer ${token}` },
@@ -93,14 +83,11 @@ export default function WordbookDetailPage({ params }: { params: Promise<{ id: s
     };
     
     // 인증 정보 로딩이 끝나고 토큰이 있을 때만 데이터를 가져옵니다.
-    if (!isAuthLoading && token && wordbookId) {
+    if (!isAuthLoading && token) {
       fetchWordbookDetail();
     } else if (!isAuthLoading && !token) {
-      // 인증 로딩이 끝났는데 토큰이 없는 경우
       setError('로그인이 필요합니다. 잠시 후 로그인 페이지로 이동합니다.');
       setIsLoading(false);
-      // 필요하다면 여기서 로그인 페이지로 리디렉션할 수 있습니다.
-      // 예: setTimeout(() => router.push('/login'), 2000);
     }
   }, [wordbookId, token, isAuthLoading]);
 
@@ -112,7 +99,6 @@ export default function WordbookDetailPage({ params }: { params: Promise<{ id: s
     }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    // 특정 영어 목소리를 찾아서 설정하면 발음이 더 자연스러워집니다.
     const englishVoice = window.speechSynthesis.getVoices().find(v => v.lang.startsWith('en-'));
     if (englishVoice) utterance.voice = englishVoice;
     utterance.lang = "en-US";
@@ -160,17 +146,26 @@ export default function WordbookDetailPage({ params }: { params: Promise<{ id: s
           </button>
         </div>
 
-        {/* 퀴즈 시작 버튼 */}
+        {/* ✨ 버튼 영역 수정 */}
         <div className="my-8 text-center">
-          <Link href={`/wordbooks/${wordbookId}/quiz`}>
-            <button 
-              disabled={wordbook.words.length < 4} 
-              className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              종합 퀴즈 시작하기
-            </button>
-          </Link>
-          {wordbook.words.length < 4 && <p className="text-xs text-gray-500 mt-2">퀴즈를 보려면 단어가 4개 이상 필요합니다.</p>}
+            <div className="flex justify-center items-center gap-4">
+                <Link href={`/wordbooks/${wordbookId}/study`} passHref>
+                    <button className="flex items-center justify-center gap-2 px-8 py-3 bg-gray-500 text-white font-bold rounded-lg shadow-md hover:bg-gray-600 transition-colors w-48">
+                        <BookMarked size={18} />
+                        단어 암기
+                    </button>
+                </Link>
+                <Link href={`/wordbooks/${wordbookId}/quiz`} passHref>
+                    <button 
+                        disabled={wordbook.words.length < 4} 
+                        className="flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed w-48"
+                    >
+                        <Puzzle size={18} />
+                        종합 퀴즈
+                    </button>
+                </Link>
+            </div>
+            {wordbook.words.length < 4 && <p className="text-xs text-gray-500 mt-2">퀴즈를 보려면 단어가 4개 이상 필요합니다.</p>}
         </div>
 
         {/* 단어 목록 */}
