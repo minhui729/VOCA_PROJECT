@@ -121,6 +121,10 @@ class WrittenQuestion(BaseQuestion):
 # API가 여러 종류의 질문을 반환할 수 있도록 Union을 사용합니다.
 QuizQuestion = Union[MultipleChoiceQuestion, WrittenQuestion]
 
+class TestResultCreate(BaseModel):
+    score: float
+    test_id: int
+    
 # =================================================================
 # ✨ 학습 리포트 관련 스키마 추가
 # =================================================================

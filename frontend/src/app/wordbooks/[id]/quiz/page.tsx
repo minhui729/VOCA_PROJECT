@@ -2,9 +2,9 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation'; // useRouter 추가
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { CheckCircle, XCircle, RefreshCw, ArrowRight, Loader2, BrainCircuit, BookText, LogOut } from 'lucide-react'; // LogOut 아이콘 추가
+import { CheckCircle, XCircle, RefreshCw, ArrowRight, Loader2, BrainCircuit, BookText, LogOut } from 'lucide-react';
 import { cva } from 'class-variance-authority';
 import Link from 'next/link';
 
@@ -23,6 +23,13 @@ interface WrittenQuestion extends BaseQuestion {
   type: 'written';
 }
 type QuizQuestion = MultipleChoiceQuestion | WrittenQuestion;
+
+// ✨ Test 객체 타입을 추가합니다.
+interface Test {
+    id: number;
+    title: string;
+    wordbook_id: number;
+}
 
 
 // --- 각 퀴즈 유형별 컴포넌트 ---
@@ -179,8 +186,8 @@ const QuizFeedback = ({
 
 export default function QuizPage() {
   const params = useParams();
-  const router = useRouter(); // ✨ useRouter 훅 사용
-  const wordbookId = params.id;
+  const router = useRouter();
+  const wordbookId = params.id as string;
   const { token, isLoading: isAuthLoading } = useAuth();
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -192,48 +199,42 @@ export default function QuizPage() {
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
   const [score, setScore] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
-  
-  // ✨ 나가기 확인 모달 상태
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (isAuthLoading) return;
+  // ✨ 시험 기록을 위한 상태 추가
+  const [testId, setTestId] = useState<number | null>(null);
+  const [isSubmittingScore, setIsSubmittingScore] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
-    const fetchQuiz = async () => {
+
+  // 퀴즈 시작 시 문제 로딩 및 Test 기록 생성
+  useEffect(() => {
+    if (isAuthLoading || !token || !wordbookId) return;
+
+    const startQuiz = async () => {
       setLoading(true);
       setError(null);
-
-      if (!token) {
-        setError('퀴즈를 보려면 로그인이 필요합니다.');
-        setLoading(false);
-        return;
-      }
-
       try {
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-        const response = await fetch(`${API_BASE_URL}/api/wordbooks/${wordbookId}/quiz`, {
+        
+        // 1. 퀴즈를 시작하며 'Test' 기록 생성
+        const testResponse = await fetch(`${API_BASE_URL}/api/wordbooks/${wordbookId}/tests`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!testResponse.ok) throw new Error('시험 기록 생성에 실패했습니다.');
+        const testData: Test = await testResponse.json();
+        setTestId(testData.id); // 생성된 시험 ID 저장
+
+        // 2. 퀴즈 문제 가져오기
+        const quizResponse = await fetch(`${API_BASE_URL}/api/wordbooks/${wordbookId}/quiz`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        
-        const responseText = await response.text();
-        if (!response.ok) {
-          try {
-            const errorData = JSON.parse(responseText);
-            throw new Error(errorData.detail || '퀴즈를 불러오는 데 실패했습니다.');
-          } catch {
-            throw new Error(`서버로부터 잘못된 응답을 받았습니다. (상태: ${response.status})`);
-          }
-        }
-        
-        const data: QuizQuestion[] = JSON.parse(responseText).filter(
-          (q: any) => q.type === 'multiple_choice' || q.type === 'written'
-        );
+        if (!quizResponse.ok) throw new Error('퀴즈를 불러오는 데 실패했습니다.');
+        const quizData: QuizQuestion[] = await quizResponse.json();
+        if (quizData.length === 0) throw new Error('생성된 퀴즈가 없습니다. 단어장에 단어를 추가해주세요.');
 
-        if (data.length === 0) {
-          throw new Error('생성된 퀴즈가 없습니다. 단어장에 단어를 추가해주세요.');
-        }
-
-        setQuestions(data); // ✨ 백엔드에서 섞어서 오므로 프론트에서 또 섞을 필요 없음
+        setQuestions(quizData);
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -241,10 +242,44 @@ export default function QuizPage() {
       }
     };
     
-    if (wordbookId) {
-      fetchQuiz();
-    }
+    startQuiz();
   }, [wordbookId, token, isAuthLoading]);
+
+  // 퀴즈 종료 시 점수 자동 제출
+  useEffect(() => {
+    if (!quizFinished || !testId) return;
+
+    const submitScore = async () => {
+        setIsSubmittingScore(true);
+        setSubmissionError(null);
+        const finalScore = questions.length > 0 ? (score / questions.length) * 100 : 0;
+
+        try {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(`${API_BASE_URL}/api/tests/results`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    score: finalScore,
+                    test_id: testId
+                })
+            });
+            if (!response.ok) {
+                throw new Error('점수 기록에 실패했습니다.');
+            }
+        } catch (err: any) {
+            setSubmissionError(err.message);
+        } finally {
+            setIsSubmittingScore(false);
+        }
+    };
+
+    submitScore();
+  }, [quizFinished, testId, score, questions.length, token]);
+
 
   const handleSubmitAnswer = (isCorrect: boolean) => {
     setIsSubmitted(true);
@@ -265,28 +300,8 @@ export default function QuizPage() {
   };
 
   const handleRestart = () => {
-    // ✨ 다시 시작할 때도 fetchQuiz를 호출하여 새로운 문제 세트를 받음
-    const fetchQuizAgain = async () => {
-        setLoading(true);
-        try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-            const response = await fetch(`${API_BASE_URL}/api/wordbooks/${wordbookId}/quiz`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await response.json();
-            setQuestions(data);
-        } catch (err) {
-            setError("퀴즈를 다시 불러오는 데 실패했습니다.");
-        } finally {
-            setLoading(false);
-        }
-    }
-    fetchQuizAgain();
-    setCurrentQuestionIndex(0);
-    setScore(0);
-    setQuizFinished(false);
-    setIsSubmitted(false);
-    setLastAnswerCorrect(null);
+    // 다시 시작할 때도 API를 다시 호출하여 새로운 Test 기록과 문제 세트를 받음
+    window.location.reload();
   };
 
   const renderLoading = () => (
@@ -304,14 +319,6 @@ export default function QuizPage() {
     </div>
   );
 
-  const renderNoQuiz = () => (
-    <div className="flex flex-col items-center justify-center min-h-screen text-slate-300 p-4 text-center">
-      <BrainCircuit className="w-16 h-16 text-sky-500" />
-      <h1 className="mt-4 text-2xl font-bold">퀴즈 없음</h1>
-      <p className="mt-2">표시할 퀴즈가 없습니다. 단어장에 단어가 충분한지 확인해주세요.</p>
-    </div>
-  );
-
   const renderQuizFinished = () => {
     const finalScore = questions.length > 0 ? (score / questions.length) * 100 : 0;
     return (
@@ -319,18 +326,31 @@ export default function QuizPage() {
         <div className="w-full max-w-md p-8 text-center bg-slate-800/60 backdrop-blur-sm border border-slate-700 rounded-2xl shadow-2xl shadow-sky-900/20">
           <h1 className="text-3xl font-bold text-white mb-2">퀴즈 완료!</h1>
           <p className="text-lg text-slate-300 mb-6">고생하셨습니다.</p>
-          <div className="mb-8">
-            <p className="text-xl font-medium text-slate-200">최종 점수</p>
-            <div className="flex items-baseline justify-center mt-2">
-              <p className={`text-7xl font-bold ${finalScore >= 80 ? 'text-sky-400' : 'text-amber-400'}`}>
-                {finalScore.toFixed(0)}
-              </p>
-              <span className="text-4xl text-slate-400 font-bold">점</span>
+          
+          {isSubmittingScore ? (
+             <div className="flex flex-col items-center justify-center my-8">
+                <Loader2 className="animate-spin text-sky-400" size={32} />
+                <p className="mt-3 text-sky-300">점수를 기록하는 중...</p>
+             </div>
+          ) : submissionError ? (
+            <div className="my-4 text-red-400 bg-red-900/30 p-3 rounded-lg">
+                <p>점수 기록 실패: {submissionError}</p>
             </div>
-            <p className="text-slate-400 mt-2">
-              {questions.length}문제 중 {score}개를 맞혔습니다.
-            </p>
-          </div>
+          ) : (
+            <div className="mb-8">
+                <p className="text-xl font-medium text-slate-200">최종 점수</p>
+                <div className="flex items-baseline justify-center mt-2">
+                <p className={`text-7xl font-bold ${finalScore >= 80 ? 'text-sky-400' : 'text-amber-400'}`}>
+                    {finalScore.toFixed(0)}
+                </p>
+                <span className="text-4xl text-slate-400 font-bold">점</span>
+                </div>
+                <p className="text-slate-400 mt-2">
+                {questions.length}문제 중 {score}개를 맞혔습니다.
+                </p>
+            </div>
+          )}
+
           <div className="flex flex-col gap-3">
             <button onClick={handleRestart}
               className="w-full flex items-center justify-center gap-2 bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-500 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-50"
@@ -350,7 +370,6 @@ export default function QuizPage() {
     );
   };
   
-  // ✨ 나가기 확인 모달 렌더링 함수
   const renderExitModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
         <div className="bg-slate-800 rounded-lg shadow-2xl p-8 w-full max-w-sm m-4 text-center">
@@ -370,6 +389,7 @@ export default function QuizPage() {
 
   const renderQuestionComponent = () => {
     const currentQuestion = questions[currentQuestionIndex];
+    if (!currentQuestion) return null; // 데이터가 아직 없을 때를 대비
     switch (currentQuestion.type) {
       case 'multiple_choice':
         return <MultipleChoiceComponent question={currentQuestion} onSubmit={handleSubmitAnswer} isParentSubmitted={isSubmitted} />;
@@ -382,14 +402,13 @@ export default function QuizPage() {
 
   if (loading || isAuthLoading) return renderLoading();
   if (error) return renderError();
-  if (questions.length === 0 && !loading) return renderNoQuiz();
+  if (questions.length === 0 && !loading) return <div className="text-center p-10 text-slate-400">퀴즈를 위한 단어가 부족합니다.</div>;
   if (quizFinished) return renderQuizFinished();
   
   const currentQuestion = questions[currentQuestionIndex];
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 p-4 selection:bg-sky-300/30">
-        {/* ✨ 나가기 버튼 추가 */}
         <div className="absolute top-4 right-4">
             <button onClick={() => setIsExitModalOpen(true)} className="flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/80 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors">
                 <LogOut size={16} />

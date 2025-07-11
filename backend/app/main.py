@@ -232,6 +232,41 @@ def get_quiz_words(
     
     return quiz_questions
 
+@app.post("/api/wordbooks/{wordbook_id}/tests", response_model=schemas.Test)
+def create_new_test_instance(
+    wordbook_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """
+    학생이 퀴즈를 시작할 때, 어떤 단어장으로 시험을 보는지 기록을 생성합니다.
+    """
+    db_wordbook = crud.get_wordbook(db, wordbook_id=wordbook_id)
+    if not db_wordbook:
+        raise HTTPException(status_code=404, detail="Wordbook not found")
+
+    # TestCreate 스키마에 맞춰 데이터를 준비합니다.
+    test_data = schemas.TestCreate(
+        title=f"{db_wordbook.title} - Quiz ({datetime.now().strftime('%Y-%m-%d %H:%M')})",
+        wordbook_id=wordbook_id
+    )
+    
+    # crud 함수를 호출하여 Test 객체를 생성합니다.
+    # creator_id는 시험을 본 학생의 id로 저장합니다.
+    return crud.create_test(db=db, test=test_data, creator_id=current_user.id)
+
+@app.post("/api/tests/results", response_model=schemas.TestResultForReport)
+def submit_test_result(
+    result_data: schemas.TestResultCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """
+    학생이 제출한 퀴즈 점수를 데이터베이스에 기록합니다.
+    """
+    # crud 함수를 호출하여 결과를 저장합니다.
+    return crud.create_test_result(db=db, result=result_data, student_id=current_user.id)
+
 # ===================================================================
 # 학생 리포트 API
 # ===================================================================

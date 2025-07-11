@@ -184,6 +184,22 @@ def create_test(db: Session, test: schemas.TestCreate, creator_id: int):
     db.refresh(db_test)
     return db_test
 
+def create_test_result(db: Session, result: schemas.TestResultCreate, student_id: int):
+    """
+    학생의 시험 결과를 데이터베이스에 저장합니다.
+    """
+    # SQLAlchemy 모델 객체를 생성합니다.
+    db_result = models.TestResult(
+        score=result.score,
+        test_id=result.test_id,
+        student_id=student_id,
+        submitted_at=func.now() # 현재 시간을 제출 시간으로 기록
+    )
+    db.add(db_result)
+    db.commit()
+    db.refresh(db_result)
+    return db_result
+
 # =================================================================
 # 학생 리포트 관련 CRUD
 # =================================================================
