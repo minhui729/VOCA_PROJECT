@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 from typing import List, Optional, Union
-from datetime import datetime
+from datetime import datetime, date
 # ✨ models.py의 UserRole Enum을 스키마에서도 사용하기 위해 import
 from .models import UserRole 
 
@@ -144,3 +144,22 @@ class StudentReport(BaseModel):
     student_id: int
     student_name: str
     assigned_wordbooks_report: List[WordbookReport] = []
+
+# =================================================================
+# ✨ 학습 통계 관련 스키마 (신규 추가)
+# =================================================================
+
+class WordbookStat(BaseModel):
+    """단어장별 평균 점수 통계"""
+    wordbook_title: str
+    average_score: float
+
+class DailyScore(BaseModel):
+    """날짜별 시험 점수 기록"""
+    date: date # 날짜만 사용
+    score: float
+
+class StudentStats(BaseModel):
+    """학생의 전체 학습 통계 데이터"""
+    wordbook_stats: List[WordbookStat]
+    daily_scores: List[DailyScore]

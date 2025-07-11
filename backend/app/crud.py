@@ -226,3 +226,43 @@ def get_student_report(db: Session, student_id: int):
         report.assigned_wordbooks_report.append(wb_report)
 
     return report
+
+# ✨ [신규] 학생 학습 통계 계산 함수
+def get_student_stats(db: Session, student_id: int) -> schemas.StudentStats:
+    """
+    특정 학생의 학습 통계 데이터를 계산합니다.
+    """
+    # 학생의 모든 시험 결과를 날짜순으로 가져옵니다.
+    # Test, Wordbook 테이블과 JOIN하여 단어장 제목도 함께 가져옵니다.
+    results = db.query(models.TestResult).join(models.Test).join(models.Wordbook)\
+        .filter(models.TestResult.student_id == student_id)\
+        .order_by(models.TestResult.submitted_at)\
+        .options(selectinload(models.TestResult.test).selectinload(models.Test.wordbook))\
+        .all()
+
+    if not results:
+        return schemas.StudentStats(wordbook_stats=[], daily_scores=[])
+
+    # 1. 단어장별 평균 점수 계산
+    wordbook_scores = {}
+    for result in results:
+        title = result.test.wordbook.title
+        if title not in wordbook_scores:
+            wordbook_scores[title] = []
+        wordbook_scores[title].append(result.score)
+    
+    wordbook_stats = []
+    for title, scores in wordbook_scores.items():
+        avg = sum(scores) / len(scores)
+        wordbook_stats.append(schemas.WordbookStat(wordbook_title=title, average_score=avg))
+
+    # 2. 날짜별 점수 기록 생성
+    daily_scores = [
+        schemas.DailyScore(date=result.submitted_at.date(), score=result.score)
+        for result in results
+    ]
+
+    return schemas.StudentStats(
+        wordbook_stats=wordbook_stats,
+        daily_scores=daily_scores
+    )

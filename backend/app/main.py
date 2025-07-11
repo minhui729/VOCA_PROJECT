@@ -245,3 +245,18 @@ def get_student_report_endpoint(
     if not report:
         raise HTTPException(status_code=404, detail="Student not found or no report available.")
     return report
+
+# ✨ [신규] 현재 로그인한 학생의 통계 조회 API
+@app.get("/api/students/me/stats", response_model=schemas.StudentStats)
+def get_my_stats(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """
+    현재 로그인한 학생의 학습 통계 데이터를 반환합니다.
+    """
+    if current_user.role != models.UserRole.student:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only students can access their stats.")
+
+    stats = crud.get_student_stats(db=db, student_id=current_user.id)
+    return stats
