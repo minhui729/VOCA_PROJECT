@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, BookCopy, BookMarked, Puzzle, BarChart, LineChart } from 'lucide-react';
+import { Loader2, BookCopy, BookMarked, Puzzle, BarChart, LineChart, PieChart } from 'lucide-react';
 // ✨ recharts 라이브러리에서 필요한 컴포넌트들을 import 합니다.
 import { 
     ResponsiveContainer, 
@@ -28,7 +28,6 @@ interface Wordbook {
 interface ApiError {
     detail: string;
 }
-// ✨ 통계 데이터 타입을 추가합니다.
 interface WordbookStat {
     wordbook_title: string;
     average_score: number;
@@ -43,7 +42,7 @@ interface StudentStats {
 }
 
 // =================================================================
-// ✨ [신규] 학습 통계 차트 컴포넌트
+// ✨ [수정] 학습 통계 차트 컴포넌트
 // =================================================================
 const StudentStatsDashboard = ({ token }: { token: string | null }) => {
     const [stats, setStats] = useState<StudentStats | null>(null);
@@ -72,6 +71,27 @@ const StudentStatsDashboard = ({ token }: { token: string | null }) => {
         fetchStats();
     }, [token]);
 
+    // ✨ 차트 툴팁을 위한 커스텀 컴포넌트
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            return (
+            <div className="p-3 bg-slate-700/80 backdrop-blur-sm border border-slate-600 rounded-lg shadow-lg">
+                <p className="label text-slate-300">{`${label}`}</p>
+                <p className="intro text-sky-400 font-bold">{`${payload[0].name} : ${payload[0].value.toFixed(1)}점`}</p>
+            </div>
+            );
+        }
+        return null;
+    };
+
+    // ✨ 데이터가 없을 때 보여줄 플레이스홀더
+    const NoDataPlaceholder = ({ message }: { message: string }) => (
+        <div className="flex items-center justify-center h-full text-slate-500 bg-slate-100/30 dark:bg-slate-800/30 rounded-lg">
+          <p>{message}</p>
+        </div>
+    );
+
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center p-8 bg-white/60 dark:bg-gray-800/60 rounded-2xl shadow-lg ring-1 ring-black/5 mb-12">
@@ -85,7 +105,7 @@ const StudentStatsDashboard = ({ token }: { token: string | null }) => {
     }
 
     if (!stats || (stats.wordbook_stats.length === 0 && stats.daily_scores.length === 0)) {
-        return null; // 통계 데이터가 없으면 아무것도 표시하지 않음
+        return null; 
     }
 
     return (
@@ -96,32 +116,44 @@ const StudentStatsDashboard = ({ token }: { token: string | null }) => {
                 <div>
                     <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><BarChart size={20} /> 단어장별 숙련도</h3>
                     <div style={{ width: '100%', height: 300 }}>
-                        <ResponsiveContainer>
-                            <RechartsBarChart data={stats.wordbook_stats}>
-                                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                                <XAxis dataKey="wordbook_title" tick={{ fill: '#a1a1aa' }} fontSize={12} />
-                                <YAxis tick={{ fill: '#a1a1aa' }} />
-                                <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }} />
-                                <Legend />
-                                <Bar dataKey="average_score" name="평균 점수" fill="#38bdf8" />
-                            </RechartsBarChart>
-                        </ResponsiveContainer>
+                        {stats.wordbook_stats.length > 0 ? (
+                            <ResponsiveContainer>
+                                <RechartsBarChart data={stats.wordbook_stats} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                    <defs>
+                                        <linearGradient id="colorAvg" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.2}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} />
+                                    <XAxis dataKey="wordbook_title" tick={{ fill: '#a1a1aa' }} fontSize={12} interval={0} angle={-20} textAnchor="end" height={50} />
+                                    <YAxis tick={{ fill: '#a1a1aa' }} />
+                                    <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(100, 116, 139, 0.1)'}}/>
+                                    <Bar dataKey="average_score" name="평균 점수" fill="url(#colorAvg)" radius={[4, 4, 0, 0]} />
+                                </RechartsBarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <NoDataPlaceholder message="단어장별 점수 기록이 없습니다." />
+                        )}
                     </div>
                 </div>
                 {/* 성적 변화 추이 차트 */}
                 <div>
                     <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><LineChart size={20} /> 성적 변화 추이</h3>
                     <div style={{ width: '100%', height: 300 }}>
-                        <ResponsiveContainer>
-                            <RechartsLineChart data={stats.daily_scores}>
-                                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                                <XAxis dataKey="date" tick={{ fill: '#a1a1aa' }} fontSize={12} />
-                                <YAxis tick={{ fill: '#a1a1aa' }} />
-                                <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }} />
-                                <Legend />
-                                <Line type="monotone" dataKey="score" name="퀴즈 점수" stroke="#818cf8" strokeWidth={2} />
-                            </RechartsLineChart>
-                        </ResponsiveContainer>
+                        {stats.daily_scores.length > 0 ? (
+                            <ResponsiveContainer>
+                                <RechartsLineChart data={stats.daily_scores} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} />
+                                    <XAxis dataKey="date" tick={{ fill: '#a1a1aa' }} fontSize={12} />
+                                    <YAxis tick={{ fill: '#a1a1aa' }} />
+                                    <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(100, 116, 139, 0.1)'}} />
+                                    <Line type="monotone" dataKey="score" name="퀴즈 점수" stroke="#818cf8" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 8 }} />
+                                </RechartsLineChart>
+                            </ResponsiveContainer>
+                        ) : (
+                             <NoDataPlaceholder message="퀴즈 응시 기록이 없습니다." />
+                        )}
                     </div>
                 </div>
             </div>
@@ -229,7 +261,6 @@ export default function StudentDashboard() {
                   </p>
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                  {/* ✨ '단어 암기' 버튼의 링크를 단어장 상세 페이지로 수정합니다. */}
                   <Link href={`/wordbooks/${wordbook.id}`} passHref>
                     <button className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all">
                       <BookMarked size={16} />
